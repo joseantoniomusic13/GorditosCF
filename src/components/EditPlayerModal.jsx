@@ -176,7 +176,7 @@ export default function EditPlayerModal({ player, onClose }) {
           {/* Foto - Vista previa grande arriba */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Foto del Jugador
+              Foto del Jugador <span className="text-slate-500 font-normal lowercase">(opcional)</span>
             </label>
             <input
               type="file"

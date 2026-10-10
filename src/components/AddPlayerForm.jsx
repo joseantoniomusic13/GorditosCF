@@ -88,31 +88,30 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
       setError("Por favor, selecciona la fecha de nacimiento.");
       return;
     }
-    if (!imageFile) {
-      setError("Por favor, selecciona una foto para el jugador.");
-      return;
-    }
-
     setLoading(true);
     setError("");
 
     try {
-      // 1. Comprimir y convertir la imagen a Base64 para guardarla en Firestore
-      //    Sin usar Firebase Storage (plan gratuito)
-      const fotoBase64 = await comprimirImagen(imageFile, 300, 0.75);
+      let fotoFinal = "";
+      if (imageFile) {
+        // 1. Comprimir y convertir la imagen a Base64 para guardarla en Firestore
+        //    Sin usar Firebase Storage (plan gratuito)
+        const fotoBase64 = await comprimirImagen(imageFile, 300, 0.75);
 
-      // Verificar que el tamaño Base64 no supera ~750KB para ser seguro con Firestore
-      if (fotoBase64.length > 750000) {
-        // Si aún es grande, comprimir más agresivamente
-        const fotoBase64Extra = await comprimirImagen(imageFile, 200, 0.6);
-        if (fotoBase64Extra.length > 750000) {
-          setError("La imagen es demasiado grande incluso comprimida. Selecciona una foto más pequeña.");
-          setLoading(false);
-          return;
+        // Verificar que el tamaño Base64 no supera ~750KB para ser seguro con Firestore
+        if (fotoBase64.length > 750000) {
+          // Si aún es grande, comprimir más agresivamente
+          const fotoBase64Extra = await comprimirImagen(imageFile, 200, 0.6);
+          if (fotoBase64Extra.length > 750000) {
+            setError("La imagen es demasiado grande incluso comprimida. Selecciona una foto más pequeña.");
+            setLoading(false);
+            return;
+          }
+          fotoFinal = fotoBase64Extra;
+        } else {
+          fotoFinal = fotoBase64;
         }
       }
-
-      const fotoFinal = fotoBase64.length <= 750000 ? fotoBase64 : await comprimirImagen(imageFile, 200, 0.6);
 
       // Determinar si es portero para compatibilidad en consultas
       const isPortero = posicion === "Portero";
@@ -242,7 +241,7 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
         {/* Selección y Previsualización de Imagen */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-            Foto del Jugador
+            Foto del Jugador <span className="text-slate-400 font-normal lowercase">(opcional)</span>
           </label>
           
           <input
@@ -263,7 +262,7 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
             >
               <Image className="w-8 h-8 text-slate-500 group-hover:text-camarma-blue transition-colors" />
               <span className="text-sm font-semibold text-slate-400 group-hover:text-white transition-colors">
-                Subir foto desde la galería
+                Subir foto desde la galería (opcional)
               </span>
               <span className="text-xs text-slate-600">
                 Se comprimirá automáticamente
