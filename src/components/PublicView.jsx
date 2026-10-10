@@ -863,10 +863,35 @@ export default function PublicView({ onAdminClick, isAdmin }) {
 
       {/* PESTAÑA: CALENDARIO Y RESULTADOS */}
         {activeTab === "calendario" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300">
-            {/* Calendario de Partidos (Próximos) */}
-            <div className="bg-slate-800/60 border border-slate-700/50 rounded-3xl p-5 sm:p-6 shadow-xl backdrop-blur-md">
-              <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 border-b border-slate-700/60 pb-3 flex items-center gap-2">
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Banner enlace oficial LaPreferente */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800/90 to-slate-900 border border-camarma-gold/30 rounded-3xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-black uppercase text-camarma-gold tracking-widest block mb-1">
+                  Competición Oficial
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-white">
+                  Calendario, Resultados y Ficha en LaPreferente
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  C.D. Gorditos C.F. No Federado · Temporada 2026/2027
+                </p>
+              </div>
+              <a
+                href="https://www.lapreferente.com/E55455/cd-gorditos-cf-no-federado"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-camarma-gold to-yellow-600 hover:from-yellow-500 hover:to-camarma-gold text-slate-950 font-black text-xs py-3 px-5 rounded-2xl transition-all active:scale-95 shadow-md shadow-camarma-gold/20 shrink-0 uppercase tracking-wider cursor-pointer"
+              >
+                <span>Ver en LaPreferente</span>
+                <span>↗</span>
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Calendario de Partidos (Próximos) */}
+              <div className="bg-slate-800/60 border border-slate-700/50 rounded-3xl p-5 sm:p-6 shadow-xl backdrop-blur-md">
+                <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 border-b border-slate-700/60 pb-3 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-camarma-gold" />
                 Próximos Partidos
               </h3>
@@ -1004,7 +1029,8 @@ export default function PublicView({ onAdminClick, isAdmin }) {
               )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* PESTAÑA: ENTRENAMIENTOS */}
         {activeTab === "entrenamientos" && (
@@ -1180,32 +1206,32 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                 <div>
                   <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
                     <Award className="w-6 h-6 text-camarma-gold" />
-                    Clasificación RFFM
+                    Competición y Calendario Oficial
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Primera Aficionado - Grupo 4 de Madrid
+                    C.D. Gorditos C.F. No Federado · Plantilla y Temporada 2026/2027 (LaPreferente)
                   </p>
                 </div>
                 <a
-                  href="https://www.rffm.es/competicion/clasificaciones?temporada=21&competicion=24037461&grupo=24037465&jornada=34&tipojuego=1"
+                  href="https://www.lapreferente.com/E55455/cd-gorditos-cf-no-federado"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shrink-0 select-none cursor-pointer border border-slate-600"
+                  className="bg-gradient-to-r from-camarma-gold to-yellow-600 hover:from-yellow-500 hover:to-camarma-gold text-slate-950 font-black text-xs py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shrink-0 select-none cursor-pointer shadow-md shadow-camarma-gold/20 uppercase tracking-wider"
                 >
-                  🌐 Abrir en RFFM
+                  🌐 Abrir en LaPreferente
                 </a>
               </div>
 
-              {/* Nota informativa en caso de bloqueo por CSP de la Federación */}
+              {/* Nota informativa */}
               <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/50 text-slate-400 text-xs mb-6 leading-relaxed">
-                ℹ️ La clasificación se carga directamente desde la Real Federación de Fútbol de Madrid. Si no visualizas la tabla abajo, haz clic en el botón de arriba <strong>"Abrir en RFFM"</strong> para verla en la web oficial.
+                ℹ️ La plantilla, calendario de partidos y resultados están vinculados a <strong>LaPreferente</strong>. Puedes navegar por la ficha oficial a continuación o pulsar en <strong>"Abrir en LaPreferente"</strong>.
               </div>
 
-              {/* Iframe oficial de RFFM */}
-              <div className="relative w-full h-[650px] bg-white rounded-2xl overflow-hidden border border-slate-700/50 shadow-inner">
+              {/* Iframe oficial de LaPreferente */}
+              <div className="relative w-full h-[700px] bg-white rounded-2xl overflow-hidden border border-slate-700/50 shadow-inner">
                 <iframe
-                  src="https://www.rffm.es/competicion/clasificaciones?temporada=21&competicion=24037461&grupo=24037465&jornada=34&tipojuego=1"
-                  title="Clasificación Oficial RFFM - Primera Aficionado Grupo 4"
+                  src="https://www.lapreferente.com/E55455/cd-gorditos-cf-no-federado"
+                  title="C.D. Gorditos C.F. No Federado - LaPreferente"
                   className="absolute top-0 left-0 w-full h-full border-0"
                   sandbox="allow-scripts allow-same-origin allow-popups"
                 />
