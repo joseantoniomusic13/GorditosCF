@@ -6,6 +6,12 @@
   --color-camarma-blue-light: #3b82f6;
   --color-camarma-gold: #eab308;
   --color-camarma-gold-dark: #ca8a04;
+
+  --color-gorditos-blue-dark: #0f172a;
+  --color-gorditos-blue: #1e3a8a;
+  --color-gorditos-blue-light: #3b82f6;
+  --color-gorditos-gold: #eab308;
+  --color-gorditos-gold-dark: #ca8a04;
   
   --font-sans: "Inter", "Outfit", system-ui, -apple-system, sans-serif;
 }

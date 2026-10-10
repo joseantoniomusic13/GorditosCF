@@ -832,7 +832,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
   const [statsJugadores, setStatsJugadores] = useState(match.statsJugadores ?? {});
   const [cronica, setCronica] = useState(match.cronica ?? "");
   const [mvpJugadorId, setMvpJugadorId] = useState(match.mvpJugadorId ?? "");
-  const [golesCamarma, setGolesCamarma] = useState(match.golesCamarma ?? 0);
+  const [golesCamarma, setGolesCamarma] = useState(match.golesGorditos ?? match.golesCamarma ?? 0);
   const [golesRival, setGolesRival] = useState(match.golesRival ?? 0);
   const [modalSlot, setModalSlot] = useState(null); // slotId o "suplente_{id}"
   const [selectorSlot, setSelectorSlot] = useState(null); // slotId que está eligiendo jugador
@@ -870,6 +870,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           alineacion: { formacion, asignaciones, suplentes },
           statsJugadores,
           golesCamarma,
+          golesGorditos: golesCamarma,
           golesRival,
         });
         setAutoSaveStatus('saved');
@@ -1147,6 +1148,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         statsJugadores: newStats,
         statsJugadoresConfirmados: newStats, // baseline fiable para futuros diffs
         golesCamarma,
+        golesGorditos: golesCamarma,
         golesRival,
         jugado: true
       });
@@ -1282,7 +1284,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Acta de Partido - Camarma CF</title>
+          <title>Acta de Partido - C.D. Gorditos C.F</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
             body {
@@ -1391,12 +1393,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         <body>
           <div class="header">
             <h1 class="title">Acta Oficial de Partido</h1>
-            <div class="subtitle">Camarma CF • Temporada de Competición</div>
+            <div class="subtitle">C.D. Gorditos C.F • Temporada de Competición</div>
           </div>
 
           <div class="meta-grid">
             <div class="meta-item">
-              <strong>Partido:</strong> ${match.condicion === "visitante" ? `${match.rival} vs Camarma CF` : `Camarma CF vs ${match.rival}`}<br/>
+              <strong>Partido:</strong> ${match.condicion === "visitante" ? `${match.rival} vs C.D. Gorditos C.F` : `C.D. Gorditos C.F vs ${match.rival}`}<br/>
               <strong>Tipo de Partido:</strong> ${match.tipoPartido || "Liga"}${match.tipoPartido === "Liga" && match.jornada ? ` (Jornada ${match.jornada})` : ""}<br/>
               <strong>Condición:</strong> ${match.condicion === "visitante" ? "✈️ Visitante" : "🏠 Local"}<br/>
               <strong>Fecha:</strong> ${new Date(match.fecha + "T00:00:00").toLocaleDateString("es-ES", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -1466,7 +1468,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           <div>
             <h2 className="text-base sm:text-lg font-black text-white leading-tight uppercase font-sans tracking-wide">Acta del Partido</h2>
             <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-0.5">
-              {match.condicion === "visitante" ? `${match.rival} vs Camarma CF` : `Camarma CF vs ${match.rival}`} • {new Date(match.fecha + "T00:00:00").toLocaleDateString("es-ES", { day:"numeric", month:"long", year:"numeric" })}
+              {match.condicion === "visitante" ? `${match.rival} vs C.D. Gorditos C.F` : `C.D. Gorditos C.F vs ${match.rival}`} • {new Date(match.fecha + "T00:00:00").toLocaleDateString("es-ES", { day:"numeric", month:"long", year:"numeric" })}
               {match.tipoPartido && ` • ${match.tipoPartido}${match.tipoPartido === "Liga" && match.jornada ? ` (Jornada ${match.jornada})` : ""}`}
             </p>
           </div>
@@ -1775,7 +1777,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 <div className="grid grid-cols-2 gap-4 bg-slate-950/45 p-4 rounded-2xl border border-slate-850/60 text-left">
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      ⚽ Goles Camarma
+                      ⚽ Goles C.D. Gorditos C.F
                     </label>
                     <input
                       type="number"

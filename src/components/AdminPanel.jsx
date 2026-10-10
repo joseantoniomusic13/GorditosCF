@@ -492,7 +492,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
     const partidosRows = matchesPlayed.map(match => {
       const s = match.statsJugadores[player.id];
       const matchDateStr = new Date(match.fecha + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
-      const resultadoStr = match.golesCamarma !== undefined ? `${match.golesCamarma} - ${match.golesRival}` : "N/A";
+      const golesClub = match.golesGorditos ?? match.golesCamarma;
+      const resultadoStr = golesClub !== undefined ? `${golesClub} - ${match.golesRival}` : "N/A";
       
       let tipoParticipacion = "Convocado";
       if (match.alineacion) {
@@ -787,10 +788,10 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         <body>
           <div class="header-report">
             <div class="title-area">
-              <h1>Camarma CF</h1>
+              <h1>C.D. Gorditos C.F</h1>
               <p>Historial Deportivo Individual</p>
             </div>
-            <img class="logo" src="./escudo.webp" alt="Camarma CF Escudo" />
+            <img class="logo" src="./escudo.jpg" alt="C.D. Gorditos C.F Escudo" />
           </div>
 
           <div class="profile-card">
@@ -928,6 +929,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         tipoPartido: tipoPartido,
         jornada: tipoPartido === "Liga" ? (jornada || null) : null,
         golesCamarma: 0,
+        golesGorditos: 0,
         golesRival: 0,
         jugado: false
       };
@@ -1114,7 +1116,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Camarma CF - Resumen de Plantilla</title>
+          <title>C.D. Gorditos C.F - Resumen de Plantilla</title>
           <meta charset="utf-8" />
           <style>
             body {
@@ -1199,7 +1201,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         <body>
           <div class="header">
             <div class="title-section">
-              <h1>Camarma CF</h1>
+              <h1>C.D. Gorditos C.F</h1>
               <h2>Informe Resumen de Plantilla</h2>
             </div>
             <div class="meta-date">
@@ -1442,10 +1444,10 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         <body>
           <div class="header-report">
             <div class="title-area">
-              <h1>Camarma CF</h1>
+              <h1>C.D. Gorditos C.F</h1>
               <p>Resumen de Asistencia a Entrenamientos</p>
             </div>
-            <img class="logo" src="./escudo.webp" alt="Camarma CF Escudo" />
+            <img class="logo" src="./escudo.jpg" alt="C.D. Gorditos C.F Escudo" />
           </div>
 
           ${contentHtml}
@@ -1623,13 +1625,13 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-camarma-gold/20 blur-md" />
             <img
-              src="./escudo.webp"
-              alt="Camarma CF Escudo"
+              src="./escudo.jpg"
+              alt="C.D. Gorditos C.F Escudo"
               className="relative w-14 h-14 object-contain hover:scale-110 transition-transform duration-300 drop-shadow-[0_4px_16px_rgba(234,179,8,0.35)]"
             />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white font-sans tracking-tight leading-none">Camarma CF</h1>
+            <h1 className="text-xl font-black text-white font-sans tracking-tight leading-none">C.D. Gorditos C.F</h1>
             <p className="text-[10px] text-camarma-gold font-black uppercase tracking-[0.2em] flex items-center gap-1 mt-0.5">
               <UserCheck className="w-3 h-3" />
               Panel de Directiva
@@ -1730,11 +1732,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         {activeTab === "dashboard" && (() => {
           // ── Computación de datos para el Dashboard ────────────────────────
           const partidosJugados = partidos.filter(p => p.jugado);
-          const victorias = partidosJugados.filter(p => p.golesCamarma > p.golesRival).length;
-          const empates = partidosJugados.filter(p => p.golesCamarma === p.golesRival).length;
-          const derrotas = partidosJugados.filter(p => p.golesCamarma < p.golesRival).length;
+          const getGoles = p => Number(p.golesGorditos ?? p.golesCamarma ?? 0);
+          const victorias = partidosJugados.filter(p => getGoles(p) > p.golesRival).length;
+          const empates = partidosJugados.filter(p => getGoles(p) === p.golesRival).length;
+          const derrotas = partidosJugados.filter(p => getGoles(p) < p.golesRival).length;
           const puntos = victorias * 3 + empates;
-          const golFavor = partidosJugados.reduce((s, p) => s + (p.golesCamarma || 0), 0);
+          const golFavor = partidosJugados.reduce((s, p) => s + getGoles(p), 0);
           const golContra = partidosJugados.reduce((s, p) => s + (p.golesRival || 0), 0);
 
           // Racha: últimos 5 partidos jugados (el más reciente primero)
@@ -1787,7 +1790,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className="absolute inset-0 rounded-full bg-camarma-gold/25 blur-md" />
-                      <img src="./escudo.webp" alt="Escudo" className="relative w-14 h-14 object-contain drop-shadow-[0_4px_16px_rgba(234,179,8,0.4)]" />
+                      <img src="./escudo.jpg" alt="Escudo" className="relative w-14 h-14 object-contain drop-shadow-[0_4px_16px_rgba(234,179,8,0.4)]" />
                     </div>
                     <div>
                       {temporadaConfig ? (
@@ -1798,7 +1801,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                               {temporadaConfig.nombre}
                             </span>
                           </div>
-                          <h2 className="text-2xl font-black text-white mt-0.5">Camarma CF</h2>
+                          <h2 className="text-2xl font-black text-white mt-0.5">C.D. Gorditos C.F</h2>
                           {diasActiva !== null && (
                             <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                               <Zap className="w-3 h-3 text-camarma-gold" />
@@ -1814,7 +1817,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                       ) : (
                         <>
                           <span className="text-xs font-black uppercase tracking-widest text-slate-500">Sin temporada configurada</span>
-                          <h2 className="text-2xl font-black text-white mt-0.5">Camarma CF</h2>
+                          <h2 className="text-2xl font-black text-white mt-0.5">C.D. Gorditos C.F</h2>
                           <p className="text-xs text-slate-500 mt-0.5">Configura la temporada en la pestaña "Partidos"</p>
                         </>
                       )}
@@ -1881,8 +1884,9 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                     ) : (
                       <div className="flex items-center gap-2 flex-wrap">
                         {[...ultimos5].reverse().map((p, i) => {
-                          const ganamos = p.golesCamarma > p.golesRival;
-                          const perdimos = p.golesCamarma < p.golesRival;
+                          const gc = p.golesGorditos ?? p.golesCamarma ?? 0;
+                          const ganamos = gc > p.golesRival;
+                          const perdimos = gc < p.golesRival;
                           const chip = ganamos
                             ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
                             : perdimos
@@ -1892,7 +1896,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                           return (
                             <div key={i} className={`flex flex-col items-center border rounded-xl px-2.5 py-2 ${chip}`}>
                               <span className="text-base font-black leading-none">{letter}</span>
-                              <span className="text-[9px] font-bold opacity-70 mt-0.5">{p.golesCamarma}-{p.golesRival}</span>
+                              <span className="text-[9px] font-bold opacity-70 mt-0.5">{gc}-{p.golesRival}</span>
                             </div>
                           );
                         })}
@@ -2832,15 +2836,15 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                                 </div>
                                 <span className="text-slate-600 font-bold">-</span>
                                 <div>
-                                  <span className="text-[10px] block font-bold text-slate-500">CAMARMA</span>
-                                  <span className="text-2xl font-black text-white">{match.golesCamarma}</span>
+                                  <span className="text-[10px] block font-bold text-slate-500">GORDITOS C.F</span>
+                                  <span className="text-2xl font-black text-white">{match.golesGorditos ?? match.golesCamarma}</span>
                                 </div>
                               </>
                             ) : (
                               <>
                                 <div>
-                                  <span className="text-[10px] block font-bold text-slate-500">CAMARMA</span>
-                                  <span className="text-2xl font-black text-white">{match.golesCamarma}</span>
+                                  <span className="text-[10px] block font-bold text-slate-500">GORDITOS C.F</span>
+                                  <span className="text-2xl font-black text-white">{match.golesGorditos ?? match.golesCamarma}</span>
                                 </div>
                                 <span className="text-slate-600 font-bold">-</span>
                                 <div>
@@ -2990,7 +2994,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   // Calcular resultado del partido para imagen y badge
                   let partidoInfo = null;
                   if (partido && cell.isCurrentMonth) {
-                    const gc = partido.golesCamarma ?? null;
+                    const gc = partido.golesGorditos ?? partido.golesCamarma ?? null;
                     const gr = partido.golesRival ?? null;
                     const played = gc !== null && gr !== null && partido.jugado;
                     if (played) {
@@ -3034,7 +3038,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                         {/* Escudo del club si también hay sesión de entreno */}
                         {session && (
                           <div className="absolute top-1 right-1 z-10">
-                            <img src="./escudo.webp" alt="" className="w-4 h-4 object-contain opacity-80" />
+                            <img src="./escudo.jpg" alt="" className="w-4 h-4 object-contain opacity-80" />
                           </div>
                         )}
                       </div>
@@ -3103,7 +3107,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                     >
                       {session && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 z-0">
-                          <img src="./escudo.webp" alt="Escudo Camarma" className="w-8 h-8 object-contain" />
+                          <img src="./escudo.jpg" alt="Escudo C.D. Gorditos C.F" className="w-8 h-8 object-contain" />
                         </div>
                       )}
                       <span className="relative z-10 text-[10px] font-extrabold">{cell.day}</span>

@@ -24,20 +24,27 @@ export default function Login({ onLoginSuccess, onBackToPublic }) {
     // Mapeo automático de nombres de usuario a correos electrónicos internos de Firebase
     const userClean = username.trim().toLowerCase();
     let email = "";
+    let authPassword = password;
     
-    if (userClean === "juancho") {
-      email = "juancho@camarmacf.com";
+    if (userClean === "presidente") {
+      email = "presidente@gorditoscf.com";
+      if (password === "123") {
+        authPassword = "presidente123"; // Firebase Auth requiere mínimo 6 caracteres
+      }
     } else if (userClean === "admin") {
-      email = "admin@camarmacf.com";
+      email = "admin@gorditoscf.com";
+      if (password === "123") {
+        authPassword = "presidente123";
+      }
     } else {
-      setError("Usuario no reconocido. Utiliza 'Juancho' o 'admin'.");
+      setError("Usuario no reconocido. Utiliza 'presidente' o 'admin'.");
       setLoading(false);
       return;
     }
 
     try {
       // Iniciar sesión en Firebase Auth usando el correo interno mapeado
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, authPassword);
       const user = userCredential.user;
 
       // Validar si el UID está en la lista de administradores autorizados
@@ -84,8 +91,8 @@ export default function Login({ onLoginSuccess, onBackToPublic }) {
           <div className="relative group mb-4">
             <div className="absolute inset-0 bg-gradient-to-tr from-camarma-blue/30 to-camarma-gold/30 rounded-full blur-xl opacity-60 scale-90 animate-pulse"></div>
             <img
-              src="./escudo.webp"
-              alt="Escudo Camarma CF"
+              src="./escudo.jpg"
+              alt="Escudo C.D. Gorditos C.F"
               className="relative w-24 h-24 md:w-28 md:h-28 object-contain drop-shadow-[0_8px_20px_rgba(30,58,138,0.4)] hover:scale-105 hover:rotate-3 transition-all duration-300"
             />
           </div>
@@ -93,7 +100,7 @@ export default function Login({ onLoginSuccess, onBackToPublic }) {
             Acceso Directiva
           </h2>
           <p className="text-sm text-slate-400 mt-1 max-w-[280px]">
-            Panel de control exclusivo para el Director Deportivo Juancho y Soporte Técnico.
+            Panel de control exclusivo para el Presidente y Directiva del C.D. Gorditos C.F.
           </p>
         </div>
 
@@ -115,7 +122,7 @@ export default function Login({ onLoginSuccess, onBackToPublic }) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700/80 focus:border-camarma-blue focus:ring-1 focus:ring-camarma-blue text-white rounded-2xl px-4 py-4 text-base transition-all outline-none placeholder:text-slate-500"
-              placeholder="Ej. Juancho"
+              placeholder="Ej. presidente"
               required
               disabled={loading}
               autoComplete="username"
@@ -172,7 +179,7 @@ export default function Login({ onLoginSuccess, onBackToPublic }) {
 
         {/* Nota aclaratoria táctil */}
         <p className="text-center text-xs text-slate-500 mt-6 leading-relaxed">
-          Acceso restringido para el Director Deportivo Juancho y Soporte Técnico.
+          Acceso restringido para el Presidente y Directiva del C.D. Gorditos C.F.
         </p>
       </div>
     </div>

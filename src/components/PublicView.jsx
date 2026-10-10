@@ -275,7 +275,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Acta de Partido - Camarma CF</title>
+          <title>Acta de Partido - C.D. Gorditos C.F</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
             body {
@@ -384,17 +384,17 @@ export default function PublicView({ onAdminClick, isAdmin }) {
         <body>
           <div class="header">
             <h1 class="title">Acta Oficial de Partido</h1>
-            <div class="subtitle">Camarma CF • Temporada de Competición</div>
+            <div class="subtitle">C.D. Gorditos C.F • Temporada de Competición</div>
           </div>
 
           <div class="meta-grid">
             <div class="meta-item">
-              <strong>Partido:</strong> ${match.condicion === "visitante" ? `${match.rival} vs Camarma CF` : `Camarma CF vs ${match.rival}`}<br/>
+              <strong>Partido:</strong> ${match.condicion === "visitante" ? `${match.rival} vs C.D. Gorditos C.F` : `C.D. Gorditos C.F vs ${match.rival}`}<br/>
               <strong>Condición:</strong> ${match.condicion === "visitante" ? "✈️ Visitante" : "🏠 Local"}<br/>
               <strong>Fecha:</strong> ${new Date(match.fecha + "T00:00:00").toLocaleDateString("es-ES", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
             <div class="meta-item">
-              <strong>Resultado:</strong> ${match.condicion === "visitante" ? `${match.golesRival} - ${match.golesCamarma}` : `${match.golesCamarma} - ${match.golesRival}`}<br/>
+              <strong>Resultado:</strong> ${match.condicion === "visitante" ? `${match.golesRival} - ${match.golesGorditos ?? match.golesCamarma}` : `${match.golesGorditos ?? match.golesCamarma} - ${match.golesRival}`}<br/>
               <strong>Formación táctica:</strong> ${match.alineacion?.formacion || "N/A"}<br/>
               <strong>Estado:</strong> Finalizado
             </div>
@@ -476,13 +476,13 @@ export default function PublicView({ onAdminClick, isAdmin }) {
         <div className="relative group mb-4">
           <div className="absolute inset-0 bg-gradient-to-tr from-camarma-blue/35 via-blue-500/20 to-camarma-gold/30 rounded-full blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500 scale-90 animate-pulse"></div>
           <img
-            src="./escudo.webp"
-            alt="Camarma CF Escudo"
+            src="./escudo.jpg"
+            alt="C.D. Gorditos C.F Escudo"
             className="relative w-32 h-32 md:w-36 md:h-36 object-contain hover:scale-105 hover:rotate-3 transition-all duration-500 drop-shadow-[0_10px_25px_rgba(0,0,0,0.4)] cursor-pointer"
           />
         </div>
         <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white font-sans uppercase">
-          Camarma <span className="text-camarma-gold">CF</span>
+          C.D. Gorditos <span className="text-camarma-gold">C.F</span>
         </h1>
         <p className="text-slate-400 mt-2 text-sm md:text-base max-w-md font-medium tracking-wide">
           Portal Oficial de Estadísticas, Resultados y Calendario de Partidos.
@@ -490,7 +490,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
 
         {/* Slogan del club */}
         <span className="mt-4 px-3 py-1 bg-camarma-blue/10 border border-camarma-blue/20 text-xs font-semibold tracking-widest text-camarma-blue-light uppercase rounded-full">
-          #¡AúpaCamarma!
+          #¡AúpaGorditos!
         </span>
 
         {/* Badge temporada activa */}
@@ -778,11 +778,12 @@ export default function PublicView({ onAdminClick, isAdmin }) {
 
               {(() => {
                 const played = partidos.filter(p => p.jugado);
-                const wins = played.filter(p => p.golesCamarma > p.golesRival).length;
-                const draws = played.filter(p => p.golesCamarma === p.golesRival).length;
-                const losses = played.filter(p => p.golesCamarma < p.golesRival).length;
+                const getGoles = p => Number(p.golesGorditos ?? p.golesCamarma ?? 0);
+                const wins = played.filter(p => getGoles(p) > p.golesRival).length;
+                const draws = played.filter(p => getGoles(p) === p.golesRival).length;
+                const losses = played.filter(p => getGoles(p) < p.golesRival).length;
                 const winRate = played.length ? Math.round((wins / played.length) * 100) : 0;
-                const goalsScored = played.reduce((acc, p) => acc + Number(p.golesCamarma || 0), 0);
+                const goalsScored = played.reduce((acc, p) => acc + getGoles(p), 0);
                 const goalsConceded = played.reduce((acc, p) => acc + Number(p.golesRival || 0), 0);
                 const cleanSheets = played.filter(p => Number(p.golesRival || 0) === 0).length;
 
@@ -901,8 +902,8 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                           </div>
                           <h4 className="text-sm sm:text-base font-bold text-white leading-tight mt-1.5 truncate">
                             {match.condicion === "visitante" 
-                              ? `${match.rival} vs Camarma CF` 
-                              : `Camarma CF vs ${match.rival}`}
+                              ? `${match.rival} vs C.D. Gorditos C.F` 
+                              : `C.D. Gorditos C.F vs ${match.rival}`}
                           </h4>
                           {match.hora && (
                             <p className="text-[10px] text-slate-500 mt-0.5">⏱️ Hora: {match.hora}</p>
@@ -952,7 +953,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                       <div className="flex items-center justify-between bg-slate-805/50 p-3 rounded-xl border border-slate-800/30">
                         {match.condicion === "visitante" ? (
                           <>
-                            {/* Visitante: Rival es Local, Camarma es Visitante */}
+                            {/* Visitante: Rival es Local, Gorditos es Visitante */}
                             <span className="text-xs sm:text-sm font-bold text-slate-400 truncate max-w-[120px]">{match.rival}</span>
                             
                             <div className="flex items-center gap-2 font-black text-sm sm:text-base shrink-0 mx-2">
@@ -961,20 +962,20 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                               </span>
                               <span className="text-slate-650">-</span>
                               <span className={`text-white px-2.5 py-1 rounded bg-camarma-blue`}>
-                                {match.golesCamarma}
+                                {match.golesGorditos ?? match.golesCamarma}
                               </span>
                             </div>
 
-                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px] text-right">Camarma CF</span>
+                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px] text-right">C.D. Gorditos C.F</span>
                           </>
                         ) : (
                           <>
-                            {/* Local: Camarma es Local, Rival es Visitante */}
-                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px]">Camarma CF</span>
+                            {/* Local: Gorditos es Local, Rival es Visitante */}
+                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px]">C.D. Gorditos C.F</span>
                             
                             <div className="flex items-center gap-2 font-black text-sm sm:text-base shrink-0 mx-2">
                               <span className={`text-white px-2.5 py-1 rounded bg-camarma-blue`}>
-                                {match.golesCamarma}
+                                {match.golesGorditos ?? match.golesCamarma}
                               </span>
                               <span className="text-slate-655">-</span>
                               <span className={`text-white px-2.5 py-1 rounded bg-slate-900`}>
@@ -1079,7 +1080,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
 
                   let partidoInfo = null;
                   if (partido && cell.isCurrentMonth) {
-                    const gc = partido.golesCamarma ?? null;
+                    const gc = partido.golesGorditos ?? partido.golesCamarma ?? null;
                     const gr = partido.golesRival ?? null;
                     const played = gc !== null && gr !== null && partido.jugado;
                     if (played) {
@@ -1114,7 +1115,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                         </div>
                         {session && (
                           <div className="absolute top-1 right-1 z-10">
-                            <img src="./escudo.webp" alt="" className="w-4 h-4 object-contain opacity-80" />
+                            <img src="./escudo.jpg" alt="" className="w-4 h-4 object-contain opacity-80" />
                           </div>
                         )}
                       </div>
@@ -1153,7 +1154,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                     <div key={idx} className={cellClasses}>
                       {session && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 z-0">
-                          <img src="./escudo.webp" alt="" className="w-8 h-8 object-contain" />
+                          <img src="./escudo.jpg" alt="" className="w-8 h-8 object-contain" />
                         </div>
                       )}
                       <span className="relative z-10 text-[10px] font-extrabold">{cell.day}</span>
@@ -1217,11 +1218,11 @@ export default function PublicView({ onAdminClick, isAdmin }) {
       {/* Footer corporativo elegante */}
       <footer className="mt-auto bg-slate-800/80 border-t border-slate-700/60 py-6 text-center text-xs text-slate-500 px-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} Camarma CF. Todos los derechos reservados.</p>
+          <p>© {new Date().getFullYear()} C.D. Gorditos C.F. Todos los derechos reservados.</p>
           <div className="flex items-center gap-1.5 text-slate-650">
             <span>Hecho con</span>
             <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            <span>para el Camarma CF</span>
+            <span>para el C.D. Gorditos C.F</span>
           </div>
         </div>
       </footer>
@@ -1264,26 +1265,26 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                 {/* Equipo Local */}
                 <div className="flex-1 text-right min-w-0">
                   <h3 className="text-lg md:text-2xl font-black text-white uppercase tracking-tight truncate">
-                    {selectedMatchDetails.condicion === "visitante" ? selectedMatchDetails.rival : "Camarma CF"}
+                    {selectedMatchDetails.condicion === "visitante" ? selectedMatchDetails.rival : "C.D. Gorditos C.F"}
                   </h3>
                   <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Local</span>
                 </div>
 
                 {/* Score */}
-                <div className="flex items-center gap-3 bg-slate-900 border border-slate-750 px-5 py-3 rounded-2xl shrink-0 shadow-lg">
+                <div className="flex items-center gap-3 bg-slate-900 border border-slate-755 px-5 py-3 rounded-2xl shrink-0 shadow-lg">
                   <strong className="text-2xl md:text-4xl font-black text-white font-mono leading-none">
-                    {selectedMatchDetails.condicion === "visitante" ? selectedMatchDetails.golesRival : selectedMatchDetails.golesCamarma}
+                    {selectedMatchDetails.condicion === "visitante" ? selectedMatchDetails.golesRival : (selectedMatchDetails.golesGorditos ?? selectedMatchDetails.golesCamarma)}
                   </strong>
                   <span className="text-slate-605 text-lg font-bold">-</span>
                   <strong className="text-2xl md:text-4xl font-black text-white font-mono leading-none">
-                    {selectedMatchDetails.condicion === "visitante" ? selectedMatchDetails.golesCamarma : selectedMatchDetails.golesRival}
+                    {selectedMatchDetails.condicion === "visitante" ? (selectedMatchDetails.golesGorditos ?? selectedMatchDetails.golesCamarma) : selectedMatchDetails.golesRival}
                   </strong>
                 </div>
 
                 {/* Equipo Visitante */}
                 <div className="flex-1 text-left min-w-0">
                   <h3 className="text-lg md:text-2xl font-black text-white uppercase tracking-tight truncate">
-                    {selectedMatchDetails.condicion === "visitante" ? "Camarma CF" : selectedMatchDetails.rival}
+                    {selectedMatchDetails.condicion === "visitante" ? "C.D. Gorditos C.F" : selectedMatchDetails.rival}
                   </h3>
                   <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Visitante</span>
                 </div>

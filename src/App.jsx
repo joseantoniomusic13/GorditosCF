@@ -50,8 +50,8 @@ export default function App() {
         <div className="relative group flex items-center justify-center">
           <div className="absolute w-36 h-36 bg-gradient-to-tr from-camarma-blue/30 to-camarma-gold/25 rounded-full blur-2xl animate-pulse"></div>
           <img
-            src="./escudo.webp"
-            alt="Camarma CF Escudo"
+            src="./escudo.jpg"
+            alt="C.D. Gorditos C.F Escudo"
             className="relative w-32 h-32 md:w-36 md:h-36 object-contain drop-shadow-[0_10px_25px_rgba(30,58,138,0.4)] hover:scale-105 duration-500 transition-transform"
           />
         </div>
@@ -64,7 +64,7 @@ export default function App() {
             </svg>
             <span className="font-extrabold tracking-widest text-xs uppercase font-sans text-slate-300">Cargando Club...</span>
           </div>
-          <span className="text-[10px] tracking-widest text-camarma-gold font-bold uppercase">#AúpaCamarma</span>
+          <span className="text-[10px] tracking-widest text-camarma-gold font-bold uppercase">#AúpaGorditos</span>
         </div>
       </div>
     );

@@ -3,11 +3,10 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Función para validar si el usuario autenticado es administrador (Juancho o Soporte)
+    // Función para validar si el usuario autenticado es administrador (Presidente)
     function isAdmin() {
       return request.auth != null && (
-        request.auth.uid == "8xcJN74gWTag0kEBlezF67WApQ92" || 
-        request.auth.uid == "A84YNswLzgZPCNUCHhPxVvavVjG2"
+        request.auth.uid == "8BgNvErBfxcEyKgVbNO6S2Y1vcH2"
       );
     }
 
