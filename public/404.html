@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>C.D. Gorditos C.F</title>
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        // Si el usuario intentó acceder a /docs/ o una subruta de /docs, redirigir a la raíz
+        if (path.indexOf('/docs') !== -1) {
+          var clean = path.replace(/\/docs(\/.*)?$/, '') || '/';
+          window.location.replace(window.location.origin + clean + window.location.search + window.location.hash);
+        } else {
+          // Redirección SPA estándar a la raíz del repositorio
+          window.location.replace('/GorditosCF/');
+        }
+      })();
+    </script>
+  </head>
+  <body style="background:#0f172a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+    <p>Cargando C.D. Gorditos C.F...</p>
+  </body>
+</html>
