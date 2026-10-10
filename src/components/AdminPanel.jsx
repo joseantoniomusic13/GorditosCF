@@ -200,9 +200,43 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
     return () => unsubscribe();
   }, []);
 
+  // Limpieza automática única de entrenamientos legacy de martes, jueves y viernes
+  useEffect(() => {
+    const cleanedFlag = localStorage.getItem("gorditos_clean_mar_jue_vie_v4");
+    if (cleanedFlag || entrenamientos.length === 0 || jugadores.length === 0) return;
 
+    const legacySessions = entrenamientos.filter(t => {
+      if (!t.fecha) return false;
+      const d = new Date(t.fecha + "T00:00:00");
+      const day = d.getDay(); // 2: Martes, 4: Jueves, 5: Viernes
+      return day === 2 || day === 4 || day === 5;
+    });
 
-  // Guardar o actualizar entrenamiento
+    if (legacySessions.length > 0) {
+      localStorage.setItem("gorditos_clean_mar_jue_vie_v4", "true");
+      (async () => {
+        try {
+          for (const s of legacySessions) {
+            await deleteDoc(doc(db, "entrenamientos", s.id));
+          }
+          const remainingTrainings = entrenamientos.filter(t => !legacySessions.some(ls => ls.id === t.id));
+          for (const player of jugadores) {
+            const count = remainingTrainings.filter(t => t.faltas && t.faltas.includes(player.id)).length;
+            if (player.faltasEntrenamiento !== count) {
+              await updateDoc(doc(db, "jugadores", player.id), {
+                faltasEntrenamiento: count
+              });
+            }
+          }
+          showToast(`Eliminados ${legacySessions.length} entrenamientos de martes, jueves y viernes del historial y calendario.`, "success");
+        } catch (err) {
+          console.error("Error eliminando sesiones de martes, jueves y viernes:", err);
+        }
+      })();
+    } else {
+      localStorage.setItem("gorditos_clean_mar_jue_vie_v4", "true");
+    }
+  }, [entrenamientos, jugadores]);
   const handleSaveTraining = async (e) => {
     e.preventDefault();
     if (!trainingDate) {
@@ -312,6 +346,73 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
       console.error("Error eliminando entrenamiento:", err);
       showToast("Error al eliminar el entrenamiento.", "error");
     }
+  };
+
+  // Eliminar todo el historial de entrenamientos
+  const confirmDeleteAllTrainings = () => {
+    setConfirmDialog({
+      title: "Eliminar Todo el Historial de Entrenamientos",
+      message: `¿Estás seguro de que deseas eliminar TODOS los entrenamientos registrados (${entrenamientos.length} sesiones)? Esta acción borrará todas las sesiones del calendario y del historial, y reiniciará a 0 las faltas de entrenamiento de todos los jugadores.`,
+      confirmText: "Vaciar Todo",
+      cancelText: "Cancelar",
+      onConfirm: async () => {
+        try {
+          const entrenosSnap = await getDocs(collection(db, "entrenamientos"));
+          for (const d of entrenosSnap.docs) {
+            await deleteDoc(doc(db, "entrenamientos", d.id));
+          }
+          for (const player of jugadores) {
+            await updateDoc(doc(db, "jugadores", player.id), {
+              faltasEntrenamiento: 0
+            });
+          }
+          showToast("Historial de entrenamientos vaciado por completo.", "success");
+        } catch (err) {
+          console.error("Error al vaciar entrenamientos:", err);
+          showToast("Error al vaciar el historial: " + err.message, "error");
+        }
+      }
+    });
+  };
+
+  // Eliminar entrenamientos específicos de martes, jueves y viernes
+  const confirmDeleteMarJueVieTrainings = () => {
+    const targetSessions = entrenamientos.filter(t => {
+      if (!t.fecha) return false;
+      const d = new Date(t.fecha + "T00:00:00");
+      const day = d.getDay();
+      return day === 2 || day === 4 || day === 5;
+    });
+
+    if (targetSessions.length === 0) {
+      showToast("No hay entrenamientos en martes, jueves o viernes.", "info");
+      return;
+    }
+
+    setConfirmDialog({
+      title: "Eliminar Entrenamientos de Mar, Jue y Vie",
+      message: `¿Deseas eliminar las ${targetSessions.length} sesiones registradas en martes, jueves y viernes? Se actualizarán las faltas de asistencia de la plantilla.`,
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      onConfirm: async () => {
+        try {
+          for (const s of targetSessions) {
+            await deleteDoc(doc(db, "entrenamientos", s.id));
+          }
+          const remainingTrainings = entrenamientos.filter(t => !targetSessions.some(ts => ts.id === t.id));
+          for (const player of jugadores) {
+            const count = remainingTrainings.filter(t => t.faltas && t.faltas.includes(player.id)).length;
+            await updateDoc(doc(db, "jugadores", player.id), {
+              faltasEntrenamiento: count
+            });
+          }
+          showToast(`Eliminados ${targetSessions.length} entrenamientos de martes, jueves y viernes.`, "success");
+        } catch (err) {
+          console.error("Error al eliminar entrenamientos seleccionados:", err);
+          showToast("Error al eliminar: " + err.message, "error");
+        }
+      }
+    });
   };
 
   const handleSignOut = async () => {
@@ -2929,7 +3030,17 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   Planifica y gestiona las sesiones y el control de asistencia del equipo.
                 </p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+                {entrenamientos.length > 0 && (
+                  <button
+                    onClick={confirmDeleteAllTrainings}
+                    className="flex-1 sm:flex-initial bg-red-955/40 hover:bg-red-900/60 border border-red-800/60 hover:border-red-600 text-red-300 hover:text-white font-extrabold text-xs py-3.5 px-4 rounded-2xl flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer transform active:scale-95 select-none uppercase tracking-wider"
+                    title="Eliminar todos los entrenamientos del historial y calendario"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                    Vaciar Historial
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setSelectedMonths([]);
@@ -3302,13 +3413,29 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
             {/* Listado Histórico */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2 cursor-pointer select-none" onClick={() => setShowTrainingHistory(!showTrainingHistory)}>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  Historial de Sesiones Registradas
-                </h3>
-                <span className="text-xs text-camarma-gold font-bold transition-all">
-                  {showTrainingHistory ? "Ocultar ▲" : "Mostrar ▼"}
-                </span>
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div 
+                  className="flex items-center gap-2 cursor-pointer select-none" 
+                  onClick={() => setShowTrainingHistory(!showTrainingHistory)}
+                >
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Historial de Sesiones Registradas
+                    <span className="text-xs text-slate-500 font-mono">({entrenamientos.length})</span>
+                  </h3>
+                  <span className="text-xs text-camarma-gold font-bold transition-all">
+                    {showTrainingHistory ? "Ocultar ▲" : "Mostrar ▼"}
+                  </span>
+                </div>
+                {entrenamientos.length > 0 && (
+                  <button
+                    onClick={confirmDeleteAllTrainings}
+                    className="bg-red-955/40 hover:bg-red-900/60 border border-red-800/60 hover:border-red-600 text-red-300 hover:text-white font-bold text-[10px] py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 uppercase tracking-wider"
+                    title="Eliminar todos los entrenamientos del historial"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    Vaciar Todo
+                  </button>
+                )}
               </div>
 
               {showTrainingHistory && (
