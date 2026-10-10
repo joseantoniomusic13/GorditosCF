@@ -468,7 +468,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
         <div className="relative group mb-4">
           <div className="absolute inset-0 bg-gradient-to-tr from-camarma-blue/35 via-blue-500/20 to-camarma-gold/30 rounded-full blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500 scale-90 animate-pulse"></div>
           <img
-            src="./escudo.jpg"
+            src="./logo.png"
             alt="C.D. Gorditos C.F Escudo"
             className="relative w-32 h-32 md:w-36 md:h-36 object-contain hover:scale-105 hover:rotate-3 transition-all duration-500 drop-shadow-[0_10px_25px_rgba(0,0,0,0.4)] cursor-pointer"
           />
@@ -1128,7 +1128,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                         </div>
                         {session && (
                           <div className="absolute top-1 right-1 z-10">
-                            <img src="./escudo.jpg" alt="" className="w-4 h-4 object-contain opacity-80" />
+                            <img src="./logo.png" alt="" className="w-4 h-4 object-contain opacity-80" />
                           </div>
                         )}
                       </div>
@@ -1169,7 +1169,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                     >
                       {session && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 z-0">
-                          <img src="./escudo.jpg" alt="" className="w-8 h-8 object-contain" />
+                          <img src="./logo.png" alt="" className="w-8 h-8 object-contain" />
                         </div>
                       )}
                       <span className="relative z-10 text-[10px] font-extrabold">{cell.day}</span>

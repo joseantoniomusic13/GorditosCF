@@ -91,7 +91,7 @@ export default function Login({ onLoginSuccess, onBackToPublic }) {
           <div className="relative group mb-4">
             <div className="absolute inset-0 bg-gradient-to-tr from-camarma-blue/30 to-camarma-gold/30 rounded-full blur-xl opacity-60 scale-90 animate-pulse"></div>
             <img
-              src="./escudo.jpg"
+              src="./logo.png"
               alt="Escudo C.D. Gorditos C.F"
               className="relative w-24 h-24 md:w-28 md:h-28 object-contain drop-shadow-[0_8px_20px_rgba(30,58,138,0.4)] hover:scale-105 hover:rotate-3 transition-all duration-300"
             />

@@ -47,6 +47,7 @@ import ActaPartido from "./ActaPartido";
 import EditPlayerModal from "./EditPlayerModal";
 import EditInjuryModal from "./EditInjuryModal";
 import AltaPlayerModal from "./AltaPlayerModal";
+import { LOGO_BASE64 } from "../logoBase64";
 
 const calcularEdad = (fechaNac) => {
   if (!fechaNac) return "N/A";
@@ -731,7 +732,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               <h1>C.D. Gorditos C.F</h1>
               <p>Historial Deportivo Individual</p>
             </div>
-            <img class="logo" src="./escudo.jpg" alt="C.D. Gorditos C.F Escudo" />
+            <img class="logo" src="${LOGO_BASE64}" alt="C.D. Gorditos C.F Escudo" />
           </div>
 
           <div class="profile-card">
@@ -1140,9 +1141,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         </head>
         <body>
           <div class="header">
-            <div class="title-section">
-              <h1>C.D. Gorditos C.F</h1>
-              <h2>Informe Resumen de Plantilla</h2>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <img src="${LOGO_BASE64}" alt="C.D. Gorditos C.F Escudo" style="width: 55px; height: 55px; object-fit: contain;" />
+              <div class="title-section">
+                <h1>C.D. Gorditos C.F</h1>
+                <h2>Informe Resumen de Plantilla</h2>
+              </div>
             </div>
             <div class="meta-date">
               <strong>Generado por:</strong> Directiva de Gestión Deportiva<br/>
@@ -1388,7 +1392,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               <h1>C.D. Gorditos C.F</h1>
               <p>Resumen de Asistencia a Entrenamientos</p>
             </div>
-            <img class="logo" src="./escudo.jpg" alt="C.D. Gorditos C.F Escudo" />
+            <img class="logo" src="${LOGO_BASE64}" alt="C.D. Gorditos C.F Escudo" />
           </div>
 
           ${contentHtml}
@@ -1560,7 +1564,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-camarma-gold/20 blur-md" />
             <img
-              src="./escudo.jpg"
+              src="./logo.png"
               alt="C.D. Gorditos C.F Escudo"
               className="relative w-14 h-14 object-contain hover:scale-110 transition-transform duration-300 drop-shadow-[0_4px_16px_rgba(234,179,8,0.35)]"
             />
@@ -1725,7 +1729,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className="absolute inset-0 rounded-full bg-camarma-gold/25 blur-md" />
-                      <img src="./escudo.jpg" alt="Escudo" className="relative w-14 h-14 object-contain drop-shadow-[0_4px_16px_rgba(234,179,8,0.4)]" />
+                      <img src="./logo.png" alt="Escudo" className="relative w-14 h-14 object-contain drop-shadow-[0_4px_16px_rgba(234,179,8,0.4)]" />
                     </div>
                     <div>
                       {temporadaConfig ? (
@@ -2970,7 +2974,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                         {/* Escudo del club si también hay sesión de entreno */}
                         {session && (
                           <div className="absolute top-1 right-1 z-10">
-                            <img src="./escudo.jpg" alt="" className="w-4 h-4 object-contain opacity-80" />
+                            <img src="./logo.png" alt="" className="w-4 h-4 object-contain opacity-80" />
                           </div>
                         )}
                       </div>
@@ -3023,7 +3027,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                     >
                       {session && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 z-0">
-                          <img src="./escudo.jpg" alt="Escudo C.D. Gorditos C.F" className="w-8 h-8 object-contain" />
+                          <img src="./logo.png" alt="Escudo C.D. Gorditos C.F" className="w-8 h-8 object-contain" />
                         </div>
                       )}
                       <span className="relative z-10 text-[10px] font-extrabold">{cell.day}</span>
