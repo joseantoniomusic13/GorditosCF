@@ -1625,6 +1625,37 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                           </div>
                         </div>
                       )}
+
+                      {/* Bajas y Ausencias al Partido */}
+                      {(() => {
+                        const matchFaltas = selectedMatchDetails.faltas || Object.keys(selectedMatchDetails.ausencias || {});
+                        if (!matchFaltas || matchFaltas.length === 0) return null;
+                        return (
+                          <div className="pt-3 border-t border-slate-800/80">
+                            <span className="block text-[8px] font-extrabold uppercase text-rose-400 mb-2">
+                              🚫 Bajas y Ausencias ({matchFaltas.length})
+                            </span>
+                            <div className="space-y-1.5">
+                              {matchFaltas.map(pid => {
+                                const p = jugadores.find(j => j.id === pid);
+                                const motivo = selectedMatchDetails.ausencias?.[pid];
+                                if (!p) return null;
+                                return (
+                                  <div key={pid} className="flex items-center justify-between text-xs py-1 px-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <img src={p.fotoUrl || "/placeholder-player.png"} className="w-5 h-5 rounded-full object-cover border border-slate-750 bg-slate-900 shrink-0" />
+                                      <span className="font-semibold text-slate-300 truncate text-[11px]">{p.nombre}</span>
+                                    </div>
+                                    <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 truncate max-w-[140px]">
+                                      {motivo || "Sin justificar"}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

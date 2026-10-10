@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../firebase";
 import { doc, updateDoc, increment } from "firebase/firestore";
 import { X, Check, ChevronDown, User, Shield, ArrowLeftRight, ClipboardList, Award, Activity, UserX } from "lucide-react";
+import { LOGO_BASE64 } from "../logoBase64";
 
 // ─────────────────────────────────────────────
 // FORMACIONES DISPONIBLES
@@ -77,7 +78,7 @@ const FORMACIONES = {
 // ─────────────────────────────────────────────
 // MODAL DE ESTADÍSTICAS DE UN JUGADOR EN EL PARTIDO
 // ─────────────────────────────────────────────
-function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, onSave, onClose, onRemove }) {
+function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaInicial = "", onSave, onClose, onRemove }) {
   const [minutos, setMinutos] = useState(stats.minutos ?? 90);
   const [goles, setGoles] = useState(stats.goles ?? 0);
   const [golesContra, setGolesContra] = useState(stats.golesContra ?? 0);
@@ -85,6 +86,7 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, onSave, onClose,
   const [amarillas, setAmarillas] = useState(stats.amarillas ?? 0);
   const [rojas, setRojas] = useState(stats.rojas ?? 0);
   const [convocado, setConvocado] = useState(stats.convocado ?? true);
+  const [motivoAusencia, setMotivoAusencia] = useState(motivoAusenciaInicial);
   const [sustituido, setSustituido] = useState(stats.sustituido ?? false);
   const [minCambio, setMinCambio] = useState(stats.minCambio ?? "");
   const [sustituidoPorId, setSustituidoPorId] = useState(stats.sustituidoPorId ?? "");
@@ -138,24 +140,24 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, onSave, onClose,
 
   const handleSave = () => {
     const minCambioInt = sustituido ? (parseInt(minCambio) || 0) : null;
-    // Si fue sustituido, los minutos jugados = minuto del cambio
-    const minutosFinales = sustituido && minCambioInt ? minCambioInt : (parseInt(minutos) || 0);
+    // Si no asiste, minutos = 0
+    const minutosFinales = !convocado ? 0 : (sustituido && minCambioInt ? minCambioInt : (parseInt(minutos) || 0));
     onSave({
       minutos: minutosFinales,
-      goles: parseInt(goles) || 0,
-      golesContra: parseInt(golesContra) || 0,
-      asistencias: parseInt(asistencias) || 0,
-      amarillas: amarillasDetalle.length,
-      rojas: rojasDetalle.length,
+      goles: !convocado ? 0 : (parseInt(goles) || 0),
+      golesContra: !convocado ? 0 : (parseInt(golesContra) || 0),
+      asistencias: !convocado ? 0 : (parseInt(asistencias) || 0),
+      amarillas: !convocado ? 0 : amarillasDetalle.length,
+      rojas: !convocado ? 0 : rojasDetalle.length,
       convocado,
-      sustituido,
+      sustituido: !convocado ? false : sustituido,
       minCambio: minCambioInt,
       sustituidoPorId: sustituido ? sustituidoPorId : null,
-      golesDetalle,
-      asistenciasDetalle,
-      amarillasDetalle,
-      rojasDetalle
-    });
+      golesDetalle: !convocado ? [] : golesDetalle,
+      asistenciasDetalle: !convocado ? [] : asistenciasDetalle,
+      amarillasDetalle: !convocado ? [] : amarillasDetalle,
+      rojasDetalle: !convocado ? [] : rojasDetalle
+    }, motivoAusencia);
   };
 
   const handleRemoveLastGoal = () => {
@@ -291,19 +293,58 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, onSave, onClose,
             </div>
           )}
 
-          {/* Convocado / Convocatoria Switch */}
+          {/* Asiste / No Asiste Switch */}
           <div className="flex items-center justify-between bg-slate-950/40 border border-slate-850/60 p-3.5 rounded-2xl">
             <div>
-              <span className="text-sm font-bold text-white block">Convocatoria</span>
+              <span className="text-sm font-bold text-white block">Asistencia al Partido</span>
               <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">Indica si el jugador asistió al encuentro</span>
             </div>
             <button
-              onClick={() => setConvocado(!convocado)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer select-none ${convocado ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400" : "bg-slate-850 border-slate-800 text-slate-400"}`}
+              onClick={() => {
+                const nextVal = !convocado;
+                setConvocado(nextVal);
+                if (nextVal) {
+                  setMotivoAusencia("");
+                } else if (!motivoAusencia) {
+                  setMotivoAusencia(jugador?.lesionado ? "Lesión" : "Falta injustificada");
+                }
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer select-none ${convocado ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400" : "bg-red-500/20 border-red-500/30 text-red-400"}`}
             >
-              {convocado ? "✔️ Convocado" : "❌ No Convocado"}
+              {convocado ? "✔️ Asiste" : "❌ No Asiste"}
             </button>
           </div>
+
+          {!convocado && (
+            <div className="p-4 bg-red-950/20 border border-red-900/30 rounded-2xl space-y-2.5 animate-in fade-in">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-red-400">
+                Motivo / Justificación de la Falta al Partido
+              </label>
+              <input
+                type="text"
+                value={motivoAusencia}
+                onChange={(e) => setMotivoAusencia(e.target.value)}
+                placeholder="Ej. Lesión, Trabajo, Falta injustificada..."
+                className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 font-sans"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {["Falta injustificada", "Lesión", "Trabajo", "Viaje", "Enfermedad", "Decisión técnica"].map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setMotivoAusencia(opt)}
+                    className={`text-[9px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                      motivoAusencia === opt
+                        ? 'bg-red-600/30 border-red-600/60 text-red-300'
+                        : 'bg-slate-850 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Minutos jugados */}
           <div className="space-y-2">
@@ -834,6 +875,19 @@ export default function ActaPartido({ match, jugadores, onClose }) {
   const [mvpJugadorId, setMvpJugadorId] = useState(match.mvpJugadorId ?? "");
   const [golesCamarma, setGolesCamarma] = useState(match.golesGorditos ?? match.golesCamarma ?? 0);
   const [golesRival, setGolesRival] = useState(match.golesRival ?? 0);
+  const [matchAusencias, setMatchAusencias] = useState(match.ausencias ?? {});
+  const [matchFaltas, setMatchFaltas] = useState(() => {
+    if (match.faltas && Array.isArray(match.faltas)) return match.faltas;
+    if (match.ausencias && Object.keys(match.ausencias).length > 0) return Object.keys(match.ausencias);
+    const assigned = new Set([
+      ...Object.values(match.alineacion?.asignaciones || {}).filter(Boolean),
+      ...(match.alineacion?.suplentes || [])
+    ]);
+    return (jugadores || []).filter(j => !assigned.has(j.id)).map(j => j.id);
+  });
+  const [absenceModal, setAbsenceModal] = useState(null); // { player, mode: 'add'|'edit' }
+  const [absenceReasonInput, setAbsenceReasonInput] = useState("");
+
   const [modalSlot, setModalSlot] = useState(null); // slotId o "suplente_{id}"
   const [selectorSlot, setSelectorSlot] = useState(null); // slotId que está eligiendo jugador
   const [guardando, setGuardando] = useState(false);
@@ -872,6 +926,8 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           golesCamarma,
           golesGorditos: golesCamarma,
           golesRival,
+          faltas: matchFaltas,
+          ausencias: matchAusencias,
         });
         setAutoSaveStatus('saved');
         // Limpiar el indicador a los 3s
@@ -884,7 +940,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [statsJugadores, golesCamarma, golesRival, cronica, mvpJugadorId, formacion, asignaciones, suplentes]);
+  }, [statsJugadores, golesCamarma, golesRival, cronica, mvpJugadorId, formacion, asignaciones, suplentes, matchFaltas, matchAusencias]);
 
   // ── Refs para sincronización de estadísticas de plantilla ──────────
   // 'statsJugadoresConfirmados' es el campo de Firestore que registra exactamente
@@ -895,6 +951,9 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     (match.actaGuardada ? match.statsJugadores || {} : {})
   );
   const lastConfirmedMvpRef = useRef(match.mvpJugadorId || "");
+  const lastConfirmedFaltasRef = useRef(
+    match.statsFaltasConfirmadas || match.faltas || []
+  );
   // Evita doble sincronización si el usuario pulsa Confirmar y luego cierra
   const actaConfirmadaEnSesionRef = useRef(false);
   const [cerrando, setCerrando] = useState(false);
@@ -959,6 +1018,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
     const proceed = () => {
       setAsignaciones(prev => ({ ...prev, [slotId]: jugadorId }));
+      setMatchFaltas(prev => prev.filter(id => id !== jugadorId));
+      setMatchAusencias(prev => {
+        const next = { ...prev };
+        delete next[jugadorId];
+        return next;
+      });
       if (!statsJugadores[jugadorId]) {
         setStatsJugadores(prev => ({ 
           ...prev, 
@@ -993,11 +1058,19 @@ export default function ActaPartido({ match, jugadores, onClose }) {
   };
 
   const desasignarSlot = (slotId) => {
+    const jugId = asignaciones[slotId];
     setAsignaciones(prev => {
       const newA = { ...prev };
       delete newA[slotId];
       return newA;
     });
+    if (jugId) {
+      setMatchFaltas(prev => prev.includes(jugId) ? prev : [...prev, jugId]);
+      const p = getJugador(jugId);
+      if (p?.lesionado) {
+        setMatchAusencias(prev => ({ ...prev, [jugId]: "Lesión" }));
+      }
+    }
   };
 
   const tryAddSuplente = (jugadorId) => {
@@ -1010,6 +1083,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
     const proceed = () => {
       setSuplentes(prev => [...prev, jugadorId]);
+      setMatchFaltas(prev => prev.filter(id => id !== jugadorId));
+      setMatchAusencias(prev => {
+        const next = { ...prev };
+        delete next[jugadorId];
+        return next;
+      });
       if (!statsJugadores[jugadorId]) {
         setStatsJugadores(prev => ({ 
           ...prev, 
@@ -1045,9 +1124,14 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
   const removeSuplente = (jugadorId) => {
     setSuplentes(prev => prev.filter(id => id !== jugadorId));
+    setMatchFaltas(prev => prev.includes(jugadorId) ? prev : [...prev, jugadorId]);
+    const p = getJugador(jugadorId);
+    if (p?.lesionado) {
+      setMatchAusencias(prev => ({ ...prev, [jugadorId]: "Lesión" }));
+    }
   };
 
-  const guardarStats = (jugadorId, newStats) => {
+  const guardarStats = (jugadorId, newStats, motivoAusencia) => {
     setStatsJugadores(prev => {
       const updated = { ...prev, [jugadorId]: newStats };
       // Si el jugador que sale fue sustituido y tiene minuto de cambio,
@@ -1067,6 +1151,23 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       }
       return updated;
     });
+
+    if (newStats.convocado === false) {
+      if (!matchFaltas.includes(jugadorId)) {
+        setMatchFaltas(prev => [...prev, jugadorId]);
+      }
+      if (motivoAusencia) {
+        setMatchAusencias(prev => ({ ...prev, [jugadorId]: motivoAusencia.trim() }));
+      }
+    } else {
+      setMatchFaltas(prev => prev.filter(id => id !== jugadorId));
+      setMatchAusencias(prev => {
+        const next = { ...prev };
+        delete next[jugadorId];
+        return next;
+      });
+    }
+
     setModalSlot(null);
   };
 
@@ -1075,7 +1176,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     : null;
 
   // ── Sincroniza estadísticas de jugadores (diff entre baseline y estado actual) ──
-  const syncPlayerStats = async (oldStats, newStats, oldMvpId, newMvpId) => {
+  const syncPlayerStats = async (oldStats, newStats, oldMvpId, newMvpId, oldFaltas = [], newFaltas = []) => {
     const todosLosJugadoresIds = new Set([
       ...Object.values(asignaciones).filter(Boolean),
       ...suplentes,
@@ -1124,6 +1225,20 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         await updateDoc(playerRef, updates);
       }
     }
+
+    // Diff de faltas de partido
+    const allFaltasIds = new Set([...oldFaltas, ...newFaltas]);
+    for (const fId of allFaltasIds) {
+      const wasAbsent = oldFaltas.includes(fId);
+      const isAbsent = newFaltas.includes(fId);
+      const diffFalta = (isAbsent ? 1 : 0) - (wasAbsent ? 1 : 0);
+      if (diffFalta !== 0) {
+        const pRef = doc(db, "jugadores", fId);
+        await updateDoc(pRef, {
+          faltasPartido: increment(diffFalta)
+        });
+      }
+    }
   };
 
   // Confirmar el Acta (también actualiza plantilla)
@@ -1135,8 +1250,10 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       const newStats = statsJugadores;
       const oldMvpId = lastConfirmedMvpRef.current;
       const newMvpId = mvpJugadorId || "";
+      const oldFaltas = lastConfirmedFaltasRef.current;
+      const newFaltas = matchFaltas;
 
-      await syncPlayerStats(oldStats, newStats, oldMvpId, newMvpId);
+      await syncPlayerStats(oldStats, newStats, oldMvpId, newMvpId, oldFaltas, newFaltas);
 
       // Guardar en Firestore: tanto el acta como el campo 'confirmado' para futuros diffs
       const matchRef = doc(db, "partidos", match.id);
@@ -1147,6 +1264,9 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         alineacion: { formacion, asignaciones, suplentes },
         statsJugadores: newStats,
         statsJugadoresConfirmados: newStats, // baseline fiable para futuros diffs
+        faltas: newFaltas,
+        ausencias: matchAusencias,
+        statsFaltasConfirmadas: newFaltas,
         golesCamarma,
         golesGorditos: golesCamarma,
         golesRival,
@@ -1156,6 +1276,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       // Actualizar baseline para futuros diffs
       lastConfirmedStatsRef.current = { ...newStats };
       lastConfirmedMvpRef.current = newMvpId;
+      lastConfirmedFaltasRef.current = [...newFaltas];
       actaConfirmadaEnSesionRef.current = true;
       setGuardado(true);
     } catch (err) {
@@ -1173,18 +1294,27 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       const newStats = statsJugadores;
       const oldMvpId = lastConfirmedMvpRef.current;
       const newMvpId = mvpJugadorId || "";
+      const oldFaltas = lastConfirmedFaltasRef.current;
+      const newFaltas = matchFaltas;
 
       // Comprobamos si hay algo que sincronizar (evitar escrituras innecesarias)
-      const hayDiferencias = JSON.stringify(oldStats) !== JSON.stringify(newStats) || oldMvpId !== newMvpId;
+      const hayDiferencias = 
+        JSON.stringify(oldStats) !== JSON.stringify(newStats) || 
+        oldMvpId !== newMvpId ||
+        JSON.stringify(oldFaltas) !== JSON.stringify(newFaltas);
+
       if (hayDiferencias) {
         setCerrando(true);
         try {
-          await syncPlayerStats(oldStats, newStats, oldMvpId, newMvpId);
+          await syncPlayerStats(oldStats, newStats, oldMvpId, newMvpId, oldFaltas, newFaltas);
           const matchRef = doc(db, "partidos", match.id);
           await updateDoc(matchRef, {
             actaGuardada: true,
             jugado: true,
-            statsJugadoresConfirmados: newStats // baseline fiable para futuros diffs
+            statsJugadoresConfirmados: newStats,
+            faltas: newFaltas,
+            ausencias: matchAusencias,
+            statsFaltasConfirmadas: newFaltas
           });
         } catch (e) {
           console.error("Error al sincronizar al cerrar:", e);
@@ -1278,6 +1408,18 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     `).join("");
 
     const mvpPlayer = jugadores.find(j => j.id === mvpJugadorId);
+
+    const bajasReport = matchFaltas.map(id => {
+      const p = getJugador(id);
+      const motivo = matchAusencias[id] || (p?.lesionado ? "Lesión" : "");
+      const injustificada = !motivo || motivo.toLowerCase() === "falta injustificada";
+      return {
+        nombre: p ? p.nombre : "Jugador",
+        posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
+        motivo: motivo || "Falta injustificada",
+        injustificada
+      };
+    });
 
     const printWindow = window.open("", "_blank");
     printWindow.document.write(`
@@ -1391,9 +1533,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1 class="title">Acta Oficial de Partido</h1>
-            <div class="subtitle">C.D. Gorditos C.F • Temporada de Competición</div>
+          <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h1 class="title">Acta Oficial de Partido</h1>
+              <div class="subtitle">C.D. Gorditos C.F • Temporada de Competición</div>
+            </div>
+            <img src="${LOGO_BASE64}" alt="C.D. Gorditos C.F Escudo" style="width: 55px; height: 55px; object-fit: contain;" />
           </div>
 
           <div class="meta-grid">
@@ -1441,6 +1586,30 @@ export default function ActaPartido({ match, jugadores, onClose }) {
               ${rowsHtml}
             </tbody>
           </table>
+
+          ${bajasReport.length > 0 ? `
+            <div class="section-title">Bajas y Faltas al Partido</div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 35%;">Jugador</th>
+                  <th style="width: 25%;">Posición</th>
+                  <th style="width: 40%;">Justificación / Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bajasReport.map(b => `
+                  <tr>
+                    <td><strong>${b.nombre}</strong></td>
+                    <td class="text-slate-500">${b.posicion}</td>
+                    <td style="color: ${b.injustificada ? '#ef4444' : '#f59e0b'}; font-weight: 600;">
+                      ${b.injustificada ? '❌ Falta Injustificada' : `⚠️ ${b.motivo}`}
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          ` : ""}
 
           <script>
             window.onload = function() {
@@ -1620,55 +1789,106 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 </div>
               </div>
 
-              {/* Jugadores No Convocados Card */}
+              {/* Bajas y Faltas al Partido Card */}
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-xl backdrop-blur-md space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-850 pb-2">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                     <UserX className="w-4.5 h-4.5 text-red-400" />
-                    No Convocados ({jugadoresLibres.length})
+                    Bajas y Faltas al Partido ({jugadoresLibres.length})
                   </h4>
-                  <span className="text-[9px] text-slate-500 font-bold">Disponibles en plantilla</span>
+                  <span className="text-[9px] text-slate-500 font-bold">Pulsa para añadir o editar justificación</span>
                 </div>
                 {jugadoresLibres.length === 0 ? (
-                  <p className="text-slate-500 text-xs italic">Todos los jugadores están convocados.</p>
+                  <p className="text-slate-500 text-xs italic">Todos los jugadores asisten al encuentro.</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-                    {jugadoresLibres.map(jug => (
-                      <div
-                        key={jug.id}
-                        className="flex items-center justify-between bg-slate-950/40 border border-slate-850/60 rounded-2xl p-2.5 transition-all hover:border-slate-700/50"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {jug.fotoUrl ? (
-                            <img src={jug.fotoUrl} alt={jug.nombre} className="w-8 h-8 rounded-full object-cover border border-slate-850" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-750">
-                              <User className="w-4 h-4 text-slate-500" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                    {jugadoresLibres.map(jug => {
+                      const isFalta = matchFaltas.includes(jug.id);
+                      const motivo = matchAusencias[jug.id] || (jug.lesionado ? "Lesión" : "");
+                      const injustificada = !motivo || motivo.toLowerCase() === "falta injustificada";
+
+                      return (
+                        <div
+                          key={jug.id}
+                          className="flex items-center justify-between bg-slate-950/40 border border-slate-850/60 rounded-2xl p-2.5 transition-all hover:border-slate-700/50"
+                        >
+                          <div
+                            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                            onClick={() => {
+                              setAbsenceReasonInput(motivo || (jug.lesionado ? "Lesión" : ""));
+                              setAbsenceModal({ player: jug, mode: motivo ? 'edit' : 'add' });
+                            }}
+                          >
+                            {jug.fotoUrl ? (
+                              <img src={jug.fotoUrl} alt={jug.nombre} className="w-8 h-8 rounded-full object-cover border border-slate-850 shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-750 shrink-0">
+                                <User className="w-4 h-4 text-slate-500" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <span className="text-xs font-bold text-slate-200 block truncate leading-tight">
+                                {jug.nombre}
+                              </span>
+                              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                {isFalta ? (
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none ${
+                                    injustificada
+                                      ? "bg-red-950/40 border-red-900/40 text-red-400"
+                                      : "bg-amber-950/40 border-amber-900/40 text-amber-400"
+                                  }`}>
+                                    {motivo ? `⚠️ ${motivo}` : "❌ Sin motivo - Toca"}
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none bg-emerald-950/40 border-emerald-900/40 text-emerald-400">
+                                    ✔️ Asiste (Sin minutos)
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          )}
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold text-slate-200 block truncate leading-tight">
-                              {jug.nombre}
-                            </span>
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mt-0.5">
-                              {jug.posicion || (jug.isPortero ? "Portero" : "Jugador")}
-                              {jug.lesionado && (
-                                <span className="text-red-450 ml-1.5 font-extrabold text-[8px] bg-red-950/40 px-1 py-0.2 rounded border border-red-900/30">
-                                  🩹 Lesionado
-                                </span>
-                              )}
-                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            {/* Toggle Asiste / Falta */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isFalta) {
+                                  // Cambiar a Asiste (quitar falta)
+                                  setMatchFaltas(prev => prev.filter(id => id !== jug.id));
+                                  setMatchAusencias(prev => {
+                                    const n = { ...prev };
+                                    delete n[jug.id];
+                                    return n;
+                                  });
+                                } else {
+                                  // Marcar Falta y pedir motivo
+                                  setMatchFaltas(prev => [...prev, jug.id]);
+                                  setAbsenceReasonInput(jug.lesionado ? "Lesión" : "Falta injustificada");
+                                  setAbsenceModal({ player: jug, mode: 'add' });
+                                }
+                              }}
+                              className={`text-[9px] font-black px-2 py-1 rounded-xl border transition-all cursor-pointer ${
+                                isFalta
+                                  ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+                                  : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
+                              }`}
+                              title={isFalta ? "Tiene falta. Pulsa para marcar que Asiste" : "Asiste. Pulsa para marcar Falta"}
+                            >
+                              {isFalta ? "❌ No asiste" : "✔️ Asiste"}
+                            </button>
+
+                            <button
+                              onClick={() => tryAddSuplente(jug.id)}
+                              className="bg-camarma-blue/15 hover:bg-camarma-blue border border-camarma-blue/30 hover:border-camarma-blue text-camarma-blue-light hover:text-white text-[10px] font-bold px-2 py-1 rounded-xl transition-all cursor-pointer select-none shrink-0"
+                              title="Convocarlo al Banquillo"
+                            >
+                              + Banquillo
+                            </button>
                           </div>
                         </div>
-                        <button
-                          onClick={() => tryAddSuplente(jug.id)}
-                          className="bg-camarma-blue/15 hover:bg-camarma-blue border border-camarma-blue/30 hover:border-camarma-blue text-camarma-blue-light hover:text-white text-[10px] font-bold px-2 py-1 rounded-xl transition-all cursor-pointer select-none shrink-0"
-                          title="Convocarlo al Banquillo"
-                        >
-                          + Banquillo
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1962,7 +2182,8 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           jugador={getJugador(jugadorIdModal)}
           stats={statsJugadores[jugadorIdModal] || {}}
           jugadoresPlantilla={jugadores.filter(j => j.id !== jugadorIdModal)}
-          onSave={(newStats) => guardarStats(jugadorIdModal, newStats)}
+          motivoAusenciaInicial={matchAusencias[jugadorIdModal] || ""}
+          onSave={(newStats, motivo) => guardarStats(jugadorIdModal, newStats, motivo)}
           onClose={() => setModalSlot(null)}
           onRemove={!modalSlot.startsWith("suplente_") ? () => {
             desasignarSlot(modalSlot);
@@ -1974,6 +2195,101 @@ export default function ActaPartido({ match, jugadores, onClose }) {
             setModalSlot(null);
           } : null}
         />
+      )}
+
+      {/* Modal de Motivo de Ausencia al Partido */}
+      {absenceModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Cabecera */}
+            <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-800">
+              <div className="w-9 h-9 rounded-full bg-red-950/30 border border-red-900/30 flex items-center justify-center shrink-0">
+                <span className="text-base">❌</span>
+              </div>
+              <div className="text-left font-sans">
+                <h4 className="font-black text-white text-sm leading-tight">
+                  Falta al Partido: {absenceModal.mode === 'add' ? 'Justificar' : 'Editar Motivo'}
+                </h4>
+                <span className="text-[10px] font-bold text-slate-400">{absenceModal.player.nombre}</span>
+              </div>
+            </div>
+
+            {/* Cuerpo */}
+            <div className="p-5 space-y-4 text-left font-sans">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">Motivo de no asistencia</label>
+                <input
+                  type="text"
+                  value={absenceReasonInput}
+                  onChange={(e) => setAbsenceReasonInput(e.target.value)}
+                  placeholder="Ej. Lesión en rodilla, trabajo, viaje..."
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-camarma-blue font-sans"
+                  autoFocus
+                />
+              </div>
+              {/* Acceso rápido */}
+              <div className="flex flex-wrap gap-1.5">
+                {["Falta injustificada", "Lesión", "Trabajo", "Viaje", "Enfermedad", "Decisión técnica"].map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setAbsenceReasonInput(opt)}
+                    className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                      absenceReasonInput === opt
+                        ? 'bg-red-600/20 border-red-600/50 text-red-300'
+                        : 'bg-slate-850 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pie */}
+            <div className="px-5 pb-5 flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const id = absenceModal.player.id;
+                  setMatchFaltas(prev => prev.filter(fId => fId !== id));
+                  setMatchAusencias(prev => {
+                    const n = { ...prev };
+                    delete n[id];
+                    return n;
+                  });
+                  setAbsenceModal(null);
+                }}
+                className="flex items-center gap-1 bg-slate-850 hover:bg-slate-800 border border-dashed border-slate-700 text-emerald-400 hover:text-white font-extrabold text-xs py-2.5 px-3 rounded-xl cursor-pointer transition-all active:scale-95 uppercase tracking-wider"
+                title="Marcar que sí asiste al encuentro"
+              >
+                ✔️ Asiste
+              </button>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setAbsenceModal(null)}
+                className="bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white font-extrabold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition-all active:scale-95 uppercase tracking-wider"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = absenceModal.player.id;
+                  if (!matchFaltas.includes(id)) {
+                    setMatchFaltas(prev => [...prev, id]);
+                  }
+                  setMatchAusencias(prev => ({ ...prev, [id]: absenceReasonInput.trim() }));
+                  setAbsenceModal(null);
+                }}
+                className="bg-gradient-to-r from-red-700 to-red-800 hover:from-red-600 hover:to-red-700 text-white font-black text-xs py-2.5 px-5 rounded-xl cursor-pointer transition-all active:scale-95 uppercase tracking-wider shadow-md"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal personalizado para confirmar el alta médica */}

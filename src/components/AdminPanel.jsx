@@ -346,7 +346,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           tarjetasRojas: 0,
           partidosConvocados: 0,
           mvps: 0,
-          faltasEntrenamiento: 0
+          faltasEntrenamiento: 0,
+          faltasPartido: 0
         });
       }
 
@@ -405,9 +406,18 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
     // 1. Filtrar partidos jugados por este jugador
     const matchesPlayed = partidos.filter(match => {
-      if (!match.actaGuardada || !match.statsJugadores) return false;
-      const s = match.statsJugadores[player.id];
+      if (!match.actaGuardada && !match.jugado) return false;
+      const s = match.statsJugadores ? match.statsJugadores[player.id] : null;
       return s && s.convocado;
+    });
+
+    // 1b. Filtrar partidos con falta / ausencia de este jugador
+    const missedMatches = partidos.filter(match => {
+      if (!match.actaGuardada && !match.jugado) return false;
+      if (match.faltas && match.faltas.includes(player.id)) return true;
+      if (match.ausencias && match.ausencias[player.id]) return true;
+      const s = match.statsJugadores ? match.statsJugadores[player.id] : null;
+      return !s || s.convocado === false;
     });
 
     // 2. Filtrar entrenamientos ausentes
@@ -494,6 +504,22 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           <td class="text-center text-emerald-600 font-bold">${golesStr}</td>
           <td class="text-center text-blue-600 font-bold">${asistenciasStr}</td>
           <td class="text-center">${tarjetasStr || "-"}</td>
+        </tr>
+      `;
+    }).join("");
+
+    // 4b. Filas de faltas de partido (con motivo)
+    const missedMatchesRows = missedMatches.map(m => {
+      const d = new Date(m.fecha + "T00:00:00");
+      const dateStr = d.toLocaleDateString("es-ES", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const motivo = (m.ausencias && m.ausencias[player.id]) ? m.ausencias[player.id] : "Falta injustificada";
+      const injustificada = motivo === "Falta injustificada" || !motivo;
+      const motivoColor = injustificada ? "#ef4444" : "#f59e0b";
+      return `
+        <tr>
+          <td><strong>vs ${m.rival}</strong> (${m.condicion === 'local' ? 'Local' : 'Visitante'})</td>
+          <td class="text-center">${dateStr}</td>
+          <td style="color:${motivoColor}; font-weight:600;">${motivo}</td>
         </tr>
       `;
     }).join("");
@@ -686,7 +712,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
             
             .stats-cards-grid {
               display: grid;
-              grid-template-columns: repeat(5, 1fr);
+              grid-template-columns: repeat(6, 1fr);
               gap: 12px;
               margin-bottom: 25px;
             }
@@ -782,6 +808,10 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               <span>Ausencias Entreno</span>
               <strong style="color: ${missedSessions.length > 0 ? '#ef4444' : '#16a34a'}">${missedSessions.length}</strong>
             </div>
+            <div class="stat-card">
+              <span>Ausencias Partido</span>
+              <strong style="color: ${missedMatches.length > 0 ? '#ef4444' : '#16a34a'}">${missedMatches.length}</strong>
+            </div>
           </div>
 
           <div class="section-title">Participación Detallada en Partidos Oficiales</div>
@@ -806,6 +836,40 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               </table>`
           }
 
+          <div class="section-title">Faltas y Ausencias en Partidos</div>
+          ${missedMatches.length === 0
+            ? `<div class="empty-msg">Asistencia completa a todos los partidos disputados (0 faltas).</div>`
+            : `<table>
+                <thead>
+                  <tr>
+                    <th>Partido</th>
+                    <th class="text-center">Fecha</th>
+                    <th>Motivo / Justificación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${missedMatchesRows}
+                </tbody>
+              </table>`
+          }
+
+          <div class="section-title">Faltas de Asistencia a Entrenamientos</div>
+          ${missedSessions.length === 0
+            ? `<div class="empty-msg">Asistencia impecable a los entrenamientos registrados (100% de asistencia).</div>`
+            : `<table>
+                <thead>
+                  <tr>
+                    <th>Fecha de Sesión</th>
+                    <th>Motivo / Justificación</th>
+                    <th>Observaciones del Míster</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${faltasRows}
+                </tbody>
+              </table>`
+          }
+
           <div class="section-title">Historial de Lesiones</div>
           ${(!player.historialLesiones || player.historialLesiones.length === 0)
             ? `<div class="empty-msg">Sin registro de lesiones anteriores.</div>`
@@ -820,22 +884,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                 </thead>
                 <tbody>
                   ${lesionesRows}
-                </tbody>
-              </table>`
-          }
-
-          <div class="section-title">Faltas de Asistencia a Entrenamientos</div>
-          ${missedSessions.length === 0
-            ? `<div class="empty-msg">Asistencia impecable a los entrenamientos registrados (100% de asistencia).</div>`
-            : `<table>
-                <thead>
-                  <tr>
-                    <th>Fecha de Sesión</th>
-                    <th>Observaciones del Míster</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${faltasRows}
                 </tbody>
               </table>`
           }
@@ -931,7 +979,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               tarjetasRojas: 0,
               partidosConvocados: 0,
               mvps: 0,
-              faltasEntrenamiento: 0
+              faltasEntrenamiento: 0,
+              faltasPartido: 0
             };
           });
 
@@ -958,6 +1007,14 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   if (playerStats.convocado) {
                     statsMap[jugadorId].partidosConvocados += 1;
                   }
+                }
+              });
+
+              // Faltas / Bajas del partido
+              const matchFaltas = match.faltas || Object.keys(match.ausencias || {});
+              matchFaltas.forEach(jugadorId => {
+                if (statsMap[jugadorId]) {
+                  statsMap[jugadorId].faltasPartido += 1;
                 }
               });
             }
@@ -987,7 +1044,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                 tarjetasRojas: pStats.tarjetasRojas,
                 partidosConvocados: pStats.partidosConvocados,
                 mvps: pStats.mvps,
-                faltasEntrenamiento: pStats.faltasEntrenamiento
+                faltasEntrenamiento: pStats.faltasEntrenamiento,
+                faltasPartido: pStats.faltasPartido
               });
             }
           });
@@ -1027,7 +1085,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         goles: player.isPortero ? player.golesContra : player.golesFavor,
         asistencias: player.asistencias || 0,
         minutos: player.minutosJugados || 0,
-        faltasCount: player.faltasEntrenamiento || 0,
+        faltasEntrenoCount: player.faltasEntrenamiento || 0,
+        faltasPartidoCount: player.faltasPartido || 0,
         faltasFechas: missedDates.length > 0 ? missedDates.join(", ") : "Ninguna"
       };
     });
@@ -1047,7 +1106,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           <td class="text-center">${r.goles}</td>
           <td class="text-center">${r.asistencias}</td>
           <td class="text-center">${r.minutos}'</td>
-          <td class="text-center" style="color: ${r.faltasCount > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${r.faltasCount}</td>
+          <td class="text-center" style="color: ${r.faltasEntrenoCount > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${r.faltasEntrenoCount}</td>
+          <td class="text-center" style="color: ${r.faltasPartidoCount > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${r.faltasPartidoCount}</td>
           <td class="date-list">${r.faltasFechas}</td>
         </tr>
       `;
@@ -1164,6 +1224,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                 <th class="text-center">Asistencias</th>
                 <th class="text-center">Minutos</th>
                 <th class="text-center">Faltas Entreno</th>
+                <th class="text-center">Faltas Partidos</th>
                 <th>Detalle Faltas Entreno</th>
               </tr>
             </thead>
@@ -2154,8 +2215,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                               <span className="text-slate-300 text-xs">{player.minutosJugados || 0}'</span>
                             </div>
                             <div className="text-center min-w-[28px]">
-                              <span className="block text-[8px] text-slate-500 uppercase tracking-widest leading-none mb-0.5">Fal</span>
+                              <span className="block text-[8px] text-slate-500 uppercase tracking-widest leading-none mb-0.5">Fal E</span>
                               <span className="text-red-400 text-xs">{player.faltasEntrenamiento || 0}</span>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <span className="block text-[8px] text-slate-500 uppercase tracking-widest leading-none mb-0.5">Fal P</span>
+                              <span className="text-amber-400 text-xs">{player.faltasPartido || 0}</span>
                             </div>
                           </div>
 
@@ -2174,7 +2239,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                       {isExpanded && (
                         <div className="p-4 border-t border-slate-850 bg-slate-950/20 animate-in slide-in-from-top-2">
                           {/* Ficha completa en grid */}
-                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 text-center text-xs text-slate-400 bg-slate-950/60 rounded-xl p-3 border border-slate-800/40 mb-4">
+                          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 text-center text-xs text-slate-400 bg-slate-950/60 rounded-xl p-3 border border-slate-800/40 mb-4">
                             <div>
                               <span className="block text-[9px] uppercase tracking-wider text-slate-550 mb-0.5">Goles</span>
                               <strong className="text-sm font-bold text-white">
@@ -2198,6 +2263,10 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                               <strong className="text-sm font-bold text-red-400">{player.faltasEntrenamiento || 0}</strong>
                             </div>
                             <div>
+                              <span className="block text-[9px] uppercase tracking-wider text-slate-555 mb-0.5">Faltas Part.</span>
+                              <strong className="text-sm font-bold text-amber-400">{player.faltasPartido || 0}</strong>
+                            </div>
+                            <div>
                               <span className="block text-[9px] uppercase tracking-wider text-slate-555 mb-0.5">Amarillas</span>
                               <strong className="text-sm font-bold text-yellow-500">{player.tarjetasAmarillas || 0}</strong>
                             </div>
@@ -2217,9 +2286,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                                 {showModPanel ? "Ocultar ▲" : "Mostrar ▼"}
                               </span>
                             </div>
-                            
                             {showModPanel && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 animate-in fade-in duration-200">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 animate-in fade-in duration-200">
                                 
                                 {/* Goles */}
                                 <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-2 flex flex-col justify-between items-center">
@@ -2350,6 +2418,25 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                                     <button
                                       onClick={() => updateStat(player, "faltasEntrenamiento", 1)}
                                       className="flex-1 bg-orange-650/20 hover:bg-orange-650/30 border border-orange-500/20 hover:border-orange-500/40 text-orange-400 font-bold py-2 rounded-lg cursor-pointer active:scale-95 transition-all text-xs"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Faltas Partido */}
+                                <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-2 flex flex-col justify-between items-center">
+                                  <span className="text-xs font-bold text-amber-400">🚫 Falta Partido</span>
+                                  <div className="flex gap-2 w-full mt-2">
+                                    <button
+                                      onClick={() => updateStat(player, "faltasPartido", -1)}
+                                      className="flex-1 bg-slate-850 hover:bg-slate-800 active:scale-90 text-slate-400 font-bold py-2 rounded-lg cursor-pointer text-xs"
+                                    >
+                                      -
+                                    </button>
+                                    <button
+                                      onClick={() => updateStat(player, "faltasPartido", 1)}
+                                      className="flex-1 bg-amber-650/20 hover:bg-amber-650/30 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 font-bold py-2 rounded-lg cursor-pointer active:scale-95 transition-all text-xs"
                                     >
                                       +
                                     </button>

@@ -132,6 +132,7 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
         golesFavor: 0,
         golesContra: 0,
         faltasEntrenamiento: 0,
+        faltasPartido: 0,
         createdAt: timestamp,
       };
 
