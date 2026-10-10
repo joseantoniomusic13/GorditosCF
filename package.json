@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "firebase": "^12.15.0",
+    "html2pdf.js": "^0.14.0",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

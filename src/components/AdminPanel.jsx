@@ -40,7 +40,9 @@ import {
   TrendingUp,
   Target,
   Zap,
-  MapPin
+  MapPin,
+  Archive,
+  Download
 } from "lucide-react";
 import AddPlayerForm from "./AddPlayerForm";
 import ActaPartido from "./ActaPartido";
@@ -48,6 +50,7 @@ import EditPlayerModal from "./EditPlayerModal";
 import EditInjuryModal from "./EditInjuryModal";
 import AltaPlayerModal from "./AltaPlayerModal";
 import { LOGO_BASE64 } from "../logoBase64";
+import { exportSeasonZip } from "../utils/seasonBackupZip";
 
 const calcularEdad = (fechaNac) => {
   if (!fechaNac) return "N/A";
@@ -113,8 +116,10 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   const [iniciandoTemporada, setIniciandoTemporada] = useState(false);
   const nuevaTemporadaFechaRef = useRef(null);
 
-
-  // Estados para crear un partido
+  // Estados para ZIP de temporada
+  const [descargandoZip, setDescargandoZip] = useState(false);
+  const [zipProgress, setZipProgress] = useState(null); // { current, total, percent, label }
+  const [autoDownloadZipOnSeasonReset, setAutoDownloadZipOnSeasonReset] = useState(true);
   const [rival, setRival] = useState("");
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
@@ -424,11 +429,50 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
     }
   };
 
+  // Descargar ZIP con todos los informes PDF de la temporada
+  const handleDownloadSeasonZip = async () => {
+    setDescargandoZip(true);
+    setZipProgress({ current: 0, total: 100, percent: 5, label: "Iniciando compilación de informes..." });
+    try {
+      await exportSeasonZip({
+        temporadaNombre: temporadaConfig?.nombre || "Actual",
+        jugadores,
+        partidos,
+        entrenamientos,
+        onProgress: (p) => setZipProgress(p)
+      });
+      showToast("¡Archivo ZIP con todos los PDFs descargado con éxito!", "success");
+    } catch (err) {
+      console.error("Error al descargar ZIP de temporada:", err);
+      showToast("Error al generar el archivo ZIP: " + err.message, "error");
+    } finally {
+      setDescargandoZip(false);
+      setZipProgress(null);
+    }
+  };
+
   // ── Handler: Iniciar Nueva Temporada ────────────────────────────────────
   const handleNuevaTemporada = async () => {
     if (!nuevaTemporadaNombre.trim() || !nuevaTemporadaFechaInicio) return;
     setIniciandoTemporada(true);
     try {
+      // 0. Descarga automática previa del ZIP de la temporada que finaliza
+      if (autoDownloadZipOnSeasonReset) {
+        showToast("Generando copia de seguridad ZIP con todos los PDFs...", "info");
+        try {
+          await exportSeasonZip({
+            temporadaNombre: temporadaConfig?.nombre || "Anterior",
+            jugadores,
+            partidos,
+            entrenamientos,
+            onProgress: (p) => setZipProgress(p)
+          });
+        } catch (zipErr) {
+          console.error("Error generando ZIP previo al reinicio:", zipErr);
+          showToast("Aviso: no se pudo completar el ZIP automático: " + zipErr.message, "warning");
+        }
+      }
+
       // 1. Guardar configuración de temporada en Firestore
       await setDoc(doc(db, "config", "temporada"), {
         nombre: nuevaTemporadaNombre.trim(),
@@ -2749,7 +2793,17 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   </p>
                 </div>
               </div>
-              <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleDownloadSeasonZip}
+                  disabled={descargandoZip}
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-[10.5px] font-bold py-2.5 px-3.5 rounded-xl transition-all cursor-pointer active:scale-95 uppercase tracking-wider backdrop-blur-sm bg-slate-950/40"
+                  title="Descargar copia de seguridad en ZIP con todos los PDFs de la temporada"
+                >
+                  <Archive className="w-3.5 h-3.5 text-camarma-gold" />
+                  {descargandoZip ? "Generando ZIP..." : "Descargar ZIP"}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -3613,6 +3667,76 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   <CalendarDays className="w-5 h-5 text-camarma-gold" />
                 </div>
               </div>
+            </div>
+
+            {/* Opción de Descarga ZIP con todos los PDFs */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-camarma-gold/15 border border-camarma-gold/30 flex items-center justify-center shrink-0">
+                    <Archive className="w-4 h-4 text-camarma-gold" />
+                  </div>
+                  <div className="min-w-0">
+                    <h5 className="text-xs font-black uppercase text-white tracking-wider truncate">
+                      Copia de Seguridad en ZIP
+                    </h5>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      Descarga todos los informes PDF de la temporada actual.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadSeasonZip}
+                  disabled={descargandoZip || iniciandoTemporada}
+                  className="bg-camarma-blue hover:bg-blue-600 disabled:opacity-50 text-white font-extrabold text-[10.5px] py-2 px-3 rounded-xl cursor-pointer transition-all active:scale-95 uppercase tracking-wider flex items-center gap-1.5 shrink-0 shadow-sm"
+                >
+                  {descargandoZip ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Generando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Descargar ZIP</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Barra de progreso interactiva */}
+              {zipProgress && (
+                <div className="space-y-1.5 pt-1 animate-in fade-in duration-200">
+                  <div className="flex justify-between text-[10px] font-bold">
+                    <span className="text-camarma-gold truncate max-w-[220px]">{zipProgress.label}</span>
+                    <span className="text-slate-400 font-mono">{zipProgress.percent}%</span>
+                  </div>
+                  <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                    <div 
+                      className="bg-gradient-to-r from-camarma-blue to-camarma-gold h-full rounded-full transition-all duration-300"
+                      style={{ width: `${zipProgress.percent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Casilla para descarga automática al iniciar temporada */}
+              <label className="flex items-center gap-2 cursor-pointer select-none pt-1 border-t border-slate-900">
+                <input
+                  type="checkbox"
+                  checked={autoDownloadZipOnSeasonReset}
+                  onChange={(e) => setAutoDownloadZipOnSeasonReset(e.target.checked)}
+                  disabled={descargandoZip || iniciandoTemporada}
+                  className="rounded border-slate-700 bg-slate-900 text-camarma-gold focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-300 font-medium">
+                  Descargar ZIP con todos los PDFs automáticamente antes de reiniciar datos
+                </span>
+              </label>
             </div>
 
             {/* Advertencia */}
