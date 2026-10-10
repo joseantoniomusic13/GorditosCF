@@ -10,6 +10,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="description" content="Portal oficial de estadísticas, Pichichi, calendario y resultados del C.D. Gorditos C.F. Panel de gestión deportiva." />
+    <!-- Redirección automática a /docs/ si GitHub Pages sirve la raíz -->
+    <script>
+      if (window.location.hostname.endsWith('github.io') && !window.location.pathname.includes('/docs')) {
+        const repo = window.location.pathname.replace(/\/$/, '');
+        window.location.replace(repo + '/docs/');
+      }
+    </script>
   </head>
   <body class="h-full font-sans antialiased selection:bg-blue-500 selection:text-white overflow-x-hidden">
     <div id="root" class="min-h-full flex flex-col"></div>
