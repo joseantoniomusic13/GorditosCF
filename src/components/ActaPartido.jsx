@@ -293,33 +293,57 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
             </div>
           )}
 
-          {/* Asiste / No Asiste Switch */}
+          {/* Selector Asiste / No Asiste */}
           <div className="flex items-center justify-between bg-slate-950/40 border border-slate-850/60 p-3.5 rounded-2xl">
             <div>
               <span className="text-sm font-bold text-white block">Asistencia al Partido</span>
-              <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">Indica si el jugador asistió al encuentro</span>
+              <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
+                {convocado ? "El jugador asiste al encuentro" : "El jugador NO asiste (pasará a Bajas)"}
+              </span>
             </div>
-            <button
-              onClick={() => {
-                const nextVal = !convocado;
-                setConvocado(nextVal);
-                if (nextVal) {
+            
+            <div className="flex items-center p-1 bg-slate-950 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setConvocado(true);
                   setMotivoAusencia("");
-                } else if (!motivoAusencia) {
-                  setMotivoAusencia(jugador?.lesionado ? "Lesión" : "Falta injustificada");
-                }
-              }}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer select-none ${convocado ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400" : "bg-red-500/20 border-red-500/30 text-red-400"}`}
-            >
-              {convocado ? "✔️ Asiste" : "❌ No Asiste"}
-            </button>
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
+                  convocado
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                ✔️ Sí asiste
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConvocado(false);
+                  if (!motivoAusencia) {
+                    setMotivoAusencia(jugador?.lesionado ? "Lesión" : "Falta injustificada");
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
+                  !convocado
+                    ? "bg-red-600 text-white shadow-md shadow-red-600/30"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                ❌ No asiste
+              </button>
+            </div>
           </div>
 
           {!convocado && (
             <div className="p-4 bg-red-950/20 border border-red-900/30 rounded-2xl space-y-2.5 animate-in fade-in">
-              <label className="block text-[10px] font-black uppercase tracking-wider text-red-400">
-                Motivo / Justificación de la Falta al Partido
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-red-400">
+                  Motivo / Justificación de la Falta al Partido
+                </label>
+                <span className="text-[9px] text-red-400/80 font-bold">Se colocará en Bajas</span>
+              </div>
               <input
                 type="text"
                 value={motivoAusencia}
@@ -343,6 +367,9 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
                   </button>
                 ))}
               </div>
+              <p className="text-[10px] text-amber-300/90 font-semibold bg-amber-950/30 border border-amber-900/40 rounded-xl p-2">
+                ⚠️ Al guardar como "No asiste", el jugador saldrá automáticamente del once/banquillo y se colocará en Bajas y Faltas al Partido.
+              </p>
             </div>
           )}
 
@@ -795,10 +822,23 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
         <div className="bg-slate-950/40 p-4 border-t border-slate-850 flex flex-col gap-2">
           <button
             onClick={handleSave}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-4 rounded-2xl text-sm shadow-md transition-all active:scale-[0.98] cursor-pointer select-none uppercase tracking-wider"
+            className={`w-full flex items-center justify-center gap-2 font-black py-4 rounded-2xl text-sm shadow-md transition-all active:scale-[0.98] cursor-pointer select-none uppercase tracking-wider ${
+              !convocado
+                ? "bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white"
+                : "bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+            }`}
           >
-            <Check className="w-4.5 h-4.5" />
-            Confirmar Datos
+            {!convocado ? (
+              <>
+                <UserX className="w-4.5 h-4.5" />
+                Guardar y Colocar en Bajas
+              </>
+            ) : (
+              <>
+                <Check className="w-4.5 h-4.5" />
+                Confirmar Datos
+              </>
+            )}
           </button>
           
           {onRemove && (
@@ -807,7 +847,7 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
               className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-dashed border-red-900/40 py-3 rounded-2xl text-xs font-bold transition-all active:scale-[0.98] cursor-pointer select-none uppercase tracking-wider"
             >
               <X className="w-4 h-4 text-red-400" />
-              Quitar de Titulares
+              Quitar de la Convocatoria (Mover a Bajas)
             </button>
           )}
         </div>
@@ -1024,22 +1064,24 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         delete next[jugadorId];
         return next;
       });
-      if (!statsJugadores[jugadorId]) {
-        setStatsJugadores(prev => ({ 
-          ...prev, 
-          [jugadorId]: { 
+      setStatsJugadores(prev => ({ 
+        ...prev, 
+        [jugadorId]: { 
+          ...(prev[jugadorId] || { 
             minutos: 90, 
             goles: 0, 
             golesContra: 0, 
             asistencias: 0, 
             amarillas: 0, 
             rojas: 0, 
-            convocado: true, 
             golesDetalle: [], 
-            asistenciasDetalle: [] 
-          } 
-        }));
-      }
+            asistenciasDetalle: [],
+            amarillasDetalle: [],
+            rojasDetalle: []
+          }), 
+          convocado: true 
+        } 
+      }));
       setSelectorSlot(null);
     };
 
@@ -1089,22 +1131,24 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         delete next[jugadorId];
         return next;
       });
-      if (!statsJugadores[jugadorId]) {
-        setStatsJugadores(prev => ({ 
-          ...prev, 
-          [jugadorId]: { 
+      setStatsJugadores(prev => ({ 
+        ...prev, 
+        [jugadorId]: { 
+          ...(prev[jugadorId] || { 
             minutos: 0, 
             goles: 0, 
             golesContra: 0, 
             asistencias: 0, 
             amarillas: 0, 
             rojas: 0, 
-            convocado: true, 
             golesDetalle: [], 
-            asistenciasDetalle: [] 
-          } 
-        }));
-      }
+            asistenciasDetalle: [],
+            amarillasDetalle: [],
+            rojasDetalle: []
+          }), 
+          convocado: true 
+        } 
+      }));
       setSelectorSlot(null);
     };
 
@@ -1132,39 +1176,77 @@ export default function ActaPartido({ match, jugadores, onClose }) {
   };
 
   const guardarStats = (jugadorId, newStats, motivoAusencia) => {
-    setStatsJugadores(prev => {
-      const updated = { ...prev, [jugadorId]: newStats };
-      // Si el jugador que sale fue sustituido y tiene minuto de cambio,
-      // actualizar automáticamente los minutos del jugador que entra
-      if (newStats.sustituido && newStats.sustituidoPorId && newStats.minCambio) {
-        const minEntrada = Math.max(0, 90 - newStats.minCambio);
-        const sustitutoActual = updated[newStats.sustituidoPorId] || {
-          minutos: minEntrada, goles: 0, golesContra: 0, asistencias: 0,
-          amarillas: 0, rojas: 0, convocado: true,
-          golesDetalle: [], asistenciasDetalle: [],
-          amarillasDetalle: [], rojasDetalle: []
-        };
-        updated[newStats.sustituidoPorId] = {
-          ...sustitutoActual,
-          minutos: minEntrada
-        };
-      }
-      return updated;
-    });
-
     if (newStats.convocado === false) {
-      if (!matchFaltas.includes(jugadorId)) {
-        setMatchFaltas(prev => [...prev, jugadorId]);
-      }
-      if (motivoAusencia) {
-        setMatchAusencias(prev => ({ ...prev, [jugadorId]: motivoAusencia.trim() }));
-      }
+      // 1. Quitar de titulares si estaba asignado a un slot
+      setAsignaciones(prev => {
+        const next = { ...prev };
+        Object.entries(next).forEach(([slot, id]) => {
+          if (id === jugadorId) {
+            delete next[slot];
+          }
+        });
+        return next;
+      });
+
+      // 2. Quitar de suplentes si estaba en banquillo
+      setSuplentes(prev => prev.filter(id => id !== jugadorId));
+
+      // 3. Añadir a faltas y registrar motivo
+      setMatchFaltas(prev => prev.includes(jugadorId) ? prev : [...prev, jugadorId]);
+      
+      const p = getJugador(jugadorId);
+      const motFinal = (motivoAusencia && motivoAusencia.trim()) || (p?.lesionado ? "Lesión" : "Falta injustificada");
+      setMatchAusencias(prev => ({ ...prev, [jugadorId]: motFinal }));
+
+      // 4. Limpiar stats de juego activo
+      setStatsJugadores(prev => ({
+        ...prev,
+        [jugadorId]: {
+          ...newStats,
+          convocado: false,
+          minutos: 0,
+          goles: 0,
+          golesContra: 0,
+          asistencias: 0,
+          amarillas: 0,
+          rojas: 0,
+          sustituido: false,
+          minCambio: null,
+          sustituidoPorId: null,
+          golesDetalle: [],
+          asistenciasDetalle: [],
+          amarillasDetalle: [],
+          rojasDetalle: []
+        }
+      }));
+
+      showToast(`${p?.nombre || "Jugador"} colocado en Bajas y Faltas al Partido.`, "info");
     } else {
       setMatchFaltas(prev => prev.filter(id => id !== jugadorId));
       setMatchAusencias(prev => {
         const next = { ...prev };
         delete next[jugadorId];
         return next;
+      });
+
+      setStatsJugadores(prev => {
+        const updated = { ...prev, [jugadorId]: newStats };
+        // Si el jugador que sale fue sustituido y tiene minuto de cambio,
+        // actualizar automáticamente los minutos del jugador que entra
+        if (newStats.sustituido && newStats.sustituidoPorId && newStats.minCambio) {
+          const minEntrada = Math.max(0, 90 - newStats.minCambio);
+          const sustitutoActual = updated[newStats.sustituidoPorId] || {
+            minutos: minEntrada, goles: 0, golesContra: 0, asistencias: 0,
+            amarillas: 0, rojas: 0, convocado: true,
+            golesDetalle: [], asistenciasDetalle: [],
+            amarillasDetalle: [], rojasDetalle: []
+          };
+          updated[newStats.sustituidoPorId] = {
+            ...sustitutoActual,
+            minutos: minEntrada
+          };
+        }
+        return updated;
       });
     }
 
@@ -1849,39 +1931,57 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            {/* Toggle Asiste / Falta */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isFalta) {
-                                  // Cambiar a Asiste (quitar falta)
+                            {/* Selector de Asistencia: Dos botones claros */}
+                            <div className="flex items-center p-0.5 bg-slate-900 border border-slate-800 rounded-xl">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Marcar Sí asiste (quitar falta)
                                   setMatchFaltas(prev => prev.filter(id => id !== jug.id));
                                   setMatchAusencias(prev => {
                                     const n = { ...prev };
                                     delete n[jug.id];
                                     return n;
                                   });
-                                } else {
-                                  // Marcar Falta y pedir motivo
-                                  setMatchFaltas(prev => [...prev, jug.id]);
-                                  setAbsenceReasonInput(jug.lesionado ? "Lesión" : "Falta injustificada");
-                                  setAbsenceModal({ player: jug, mode: 'add' });
-                                }
-                              }}
-                              className={`text-[9px] font-black px-2 py-1 rounded-xl border transition-all cursor-pointer ${
-                                isFalta
-                                  ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
-                                  : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
-                              }`}
-                              title={isFalta ? "Tiene falta. Pulsa para marcar que Asiste" : "Asiste. Pulsa para marcar Falta"}
-                            >
-                              {isFalta ? "❌ No asiste" : "✔️ Asiste"}
-                            </button>
+                                }}
+                                className={`text-[9px] font-black px-2 py-1 rounded-lg transition-all cursor-pointer select-none ${
+                                  !isFalta
+                                    ? "bg-emerald-600 text-white shadow-sm"
+                                    : "text-slate-500 hover:text-slate-300"
+                                }`}
+                                title="Marcar que Sí Asiste al partido"
+                              >
+                                ✔️ Sí asiste
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Marcar No asiste (falta y pedir motivo)
+                                  if (!isFalta) {
+                                    setMatchFaltas(prev => prev.includes(jug.id) ? prev : [...prev, jug.id]);
+                                    setAbsenceReasonInput(jug.lesionado ? "Lesión" : "Falta injustificada");
+                                    setAbsenceModal({ player: jug, mode: 'add' });
+                                  } else {
+                                    setAbsenceReasonInput(motivo || (jug.lesionado ? "Lesión" : "Falta injustificada"));
+                                    setAbsenceModal({ player: jug, mode: 'edit' });
+                                  }
+                                }}
+                                className={`text-[9px] font-black px-2 py-1 rounded-lg transition-all cursor-pointer select-none ${
+                                  isFalta
+                                    ? "bg-red-600 text-white shadow-sm"
+                                    : "text-slate-500 hover:text-slate-300"
+                                }`}
+                                title="Marcar que No Asiste (Falta al partido)"
+                              >
+                                ❌ No asiste
+                              </button>
+                            </div>
 
                             <button
                               onClick={() => tryAddSuplente(jug.id)}
-                              className="bg-camarma-blue/15 hover:bg-camarma-blue border border-camarma-blue/30 hover:border-camarma-blue text-camarma-blue-light hover:text-white text-[10px] font-bold px-2 py-1 rounded-xl transition-all cursor-pointer select-none shrink-0"
-                              title="Convocarlo al Banquillo"
+                              className="bg-camarma-blue/15 hover:bg-camarma-blue border border-camarma-blue/30 hover:border-camarma-blue text-camarma-blue-light hover:text-white text-[10px] font-bold px-2 py-1.5 rounded-xl transition-all cursor-pointer select-none shrink-0"
+                              title="Convocar al Banquillo (Se marcará automáticamente como 'Sí asiste')"
                             >
                               + Banquillo
                             </button>
@@ -2185,15 +2285,19 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           motivoAusenciaInicial={matchAusencias[jugadorIdModal] || ""}
           onSave={(newStats, motivo) => guardarStats(jugadorIdModal, newStats, motivo)}
           onClose={() => setModalSlot(null)}
-          onRemove={!modalSlot.startsWith("suplente_") ? () => {
-            desasignarSlot(modalSlot);
+          onRemove={() => {
+            if (modalSlot.startsWith("suplente_")) {
+              removeSuplente(jugadorIdModal);
+            } else {
+              desasignarSlot(modalSlot);
+            }
             setStatsJugadores(prev => {
               const newStats = { ...prev };
               delete newStats[jugadorIdModal];
               return newStats;
             });
             setModalSlot(null);
-          } : null}
+          }}
         />
       )}
 
