@@ -4118,79 +4118,83 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           {/* Cuerpo */}
           <div className="p-6 space-y-5 overflow-y-auto flex-1 font-sans text-left">
 
-            {/* Sección 1 — Partidos */}
+            {/* Sección 1 — Partidos y Actas */}
             <div className="space-y-2">
               <h5 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                📅 Crear partidos y actas
+                📅 Partidos, Calendario y Actas Oficiales
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li>En la pestaña <strong className="text-slate-200">Partidos</strong> pulsa <strong className="text-camarma-gold">Registrar Partido</strong> e introduce rival, fecha, hora y condición (local/visitante).</li>
-                <li>Pulsa el botón morado <strong className="text-purple-300">📋 Acta</strong> del partido para abrir la mesa de control del encuentro.</li>
+                <li>En la pestaña <strong className="text-slate-200">Partidos</strong> pulsa <strong className="text-camarma-gold">Registrar Partido</strong> e introduce rival, fecha, hora y condición (local o visitante).</li>
+                <li>Los resultados y competiciones oficiales están conectados con el portal de <strong className="text-slate-200">LaPreferente</strong>.</li>
+                <li>Pulsa el botón morado <strong className="text-purple-300">📋 Acta</strong> para gestionar la mesa de control del encuentro.</li>
+                <li><strong className="text-slate-200">Alineación táctica:</strong> Selecciona el esquema táctico y asigna titulares sobre el campo y suplentes en el banquillo.</li>
+                <li><strong className="text-slate-200">Control de asistencia al partido:</strong> Cada jugador puede marcarse como <strong className="text-emerald-400">✔️ Asiste</strong> o <strong className="text-rose-400">❌ No asiste</strong>. Si no asiste, puedes seleccionar el motivo (lesión, trabajo, viaje, enfermedad, decisión técnica o falta injustificada).</li>
+                <li><strong className="text-slate-200">Goles y eventos con minuto:</strong> Al anotar un gol se registra el minuto exacto y si fue de penalti, al igual que asistencias y tarjetas.</li>
+                <li><strong className="text-slate-200">Confirmación y sincronización:</strong> Al confirmar el acta con el marcador, crónica y MVP, todas las estadísticas y faltas de partido se guardan y actualizan automáticamente en la plantilla.</li>
               </ul>
             </div>
 
-            {/* Sección 2 — Acta */}
+            {/* Sección 2 — Entrenamientos */}
             <div className="space-y-2 border-t border-slate-800/60 pt-4">
               <h5 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                📋 Dentro del acta de partido
+                👟 Gestión de Entrenamientos Oficiales
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li><strong className="text-slate-200">Alineación:</strong> Selecciona el esquema táctico y asigna titulares y suplentes.</li>
-                <li><strong className="text-slate-200">Estadísticas individuales:</strong> Toca un jugador para editar sus minutos, tarjetas y sustituciones.</li>
-                <li><strong className="text-slate-200">Goles con detalle:</strong> Al añadir un gol se registra el <strong className="text-camarma-gold">minuto exacto</strong> y si fue de <strong className="text-camarma-gold">penalti</strong>. Igual para asistencias.</li>
-                <li><strong className="text-slate-200">Confirmar Acta:</strong> Introduce el marcador, redacta la crónica, elige MVP y confirma. Todos los datos se sincronizan automáticamente en la plantilla.</li>
+                <li><strong className="text-slate-200">Sin sesiones predefinidas:</strong> El calendario nunca genera entrenamientos automáticos. Solo existen y contabilizan las sesiones que tú crees expresamente.</li>
+                <li>Pulsa cualquier día del calendario o el botón <strong className="text-camarma-gold">Registrar Sesión</strong> para programar un entrenamiento.</li>
+                <li><strong className="text-slate-200">Lugar / Instalación personalizada:</strong> Puedes escribir el campo o recinto donde se entrena cada sesión, además de notas técnicas del míster.</li>
+                <li><strong className="text-slate-200">Faltas de entrenamiento:</strong> Apunta las bajas de la sesión con sus respectivos motivos justificados o injustificados.</li>
+                <li><strong className="text-slate-200">Vaciar Historial:</strong> Si necesitas limpiar el calendario por completo, dispones del botón rojo <strong className="text-rose-400">🗑️ Vaciar Historial</strong> para borrar todas las sesiones y reiniciar las faltas de entreno a cero.</li>
               </ul>
             </div>
 
-            {/* Sección 3 — Entrenamientos */}
+            {/* Sección 3 — Faltas, Bajas y Lesiones */}
             <div className="space-y-2 border-t border-slate-800/60 pt-4">
               <h5 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                👟 Gestión de entrenamientos
+                🏥 Diferenciación de Faltas y Control Médico
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li>En la pestaña <strong className="text-slate-200">Entrenamientos</strong> verás el calendario. Pulsa cualquier día o el botón <em>Registrar Sesión</em> para programar un entrenamiento.</li>
-                <li>Podrás especificar el <strong className="text-camarma-gold">lugar / instalación</strong> donde se entrena, notas y apuntar las <strong className="text-camarma-gold">faltas de asistencia</strong> (justificadas o injustificadas).</li>
-                <li>Solo contabilizan las asistencias y faltas de los entrenamientos y partidos creados oficialmente.</li>
-                <li>Los días completados muestran el escudo del club como marca de agua en el calendario.</li>
+                <li>El sistema separa formalmente entre <strong className="text-rose-400">Faltas de Entrenamiento</strong> y <strong className="text-amber-400">Faltas de Partido</strong> en todos los perfiles, fichas e informes.</li>
+                <li><strong className="text-slate-200">Baja médica por lesión:</strong> En la ficha del jugador puedes activar el estado de lesión, indicar el diagnóstico y fecha de baja. Mientras esté lesionado, el sistema precarga automáticamente el motivo en los partidos y entrenos.</li>
+                <li><strong className="text-slate-200">Alta médica:</strong> Al pulsar "Dar de Alta" se calcula la duración total de la baja y se almacena en el historial médico del jugador.</li>
               </ul>
             </div>
 
-            {/* Sección 4 — Bajas y Lesiones */}
+            {/* Sección 4 — Plantilla y Auditoría de Stats */}
             <div className="space-y-2 border-t border-slate-800/60 pt-4">
               <h5 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                🏥 Control de bajas y lesiones
+                📊 Plantilla y Modificación Táctil
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li>En la ficha de cada jugador (Plantilla) pulsa <strong className="text-camarma-gold">Control de Bajas</strong> para registrar una ausencia en un entrenamiento específico.</li>
-                <li>Se pedirá el <strong className="text-slate-200">motivo</strong>: puedes indicar lesión, trabajo, enfermedad, u optar por <strong className="text-red-400">Falta injustificada</strong>.</li>
-                <li>Las faltas <strong className="text-slate-200">justificadas</strong> aparecen en el PDF individual del jugador con la fecha y el motivo exacto.</li>
-                <li>Para registrar una <strong className="text-slate-200">lesión</strong>, usa el botón <strong className="text-camarma-gold">Baja por Lesión</strong>. El jugador quedará marcado como lesionado hasta que se le dé el alta.</li>
-                <li>Desde el <strong className="text-slate-200">historial de lesiones</strong> puedes <strong className="text-camarma-gold">editar</strong> cualquier lesión pasada (tipo, fechas) o <strong className="text-red-400">eliminarla</strong> si fue registrada por error.</li>
+                <li>En la pestaña <strong className="text-slate-200">Plantilla</strong> puedes desplegar la ficha de cualquier jugador para ver sus estadísticas completas.</li>
+                <li><strong className="text-slate-200">Panel de Modificaciones (+/-):</strong> Permite ajustar manualmente goles, minutos, asistencias, tarjetas, partidos convocados y ahora también <strong className="text-slate-200">Falta Entreno</strong> y <strong className="text-slate-200">Falta Partido</strong>.</li>
+                <li><strong className="text-camarma-gold">⟳ Recalcular Stats:</strong> Ejecuta una auditoría completa recalculando goles, minutos, convocatorias y faltas (de entrenos y partidos) directamente desde las actas y sesiones creadas, garantizando datos 100% exactos.</li>
               </ul>
             </div>
 
-            {/* Sección 5 — Plantilla y Stats */}
+            {/* Sección 5 — Reportes PDF */}
             <div className="space-y-2 border-t border-slate-800/60 pt-4">
               <h5 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                📊 Plantilla y estadísticas
+                📄 Generación de Reportes PDF
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li>Desde la pestaña <strong className="text-slate-200">Plantilla</strong> puedes consultar la ficha completa de cada jugador: goles, asistencias, minutos, tarjetas y faltas.</li>
-                <li>El botón <strong className="text-camarma-gold">⟳ Recalcular Stats</strong> realiza una auditoría completa: recorre todas las actas y sesiones de entrenamiento y corrige cualquier desajuste en las estadísticas de todos los jugadores a la vez.</li>
-                <li>Usa <strong className="text-camarma-gold">Editar jugador</strong> para modificar datos personales, número de dorsal o posición.</li>
+                <li>Todos los reportes oficiales incorporan el <strong className="text-slate-200">escudo oficial del C.D. Gorditos C.F</strong> en alta resolución.</li>
+                <li><strong className="text-slate-200">PDF de plantilla:</strong> Informe general con la tabla completa de rendimiento de todo el equipo.</li>
+                <li><strong className="text-slate-200">PDF individual de jugador:</strong> Expediente con foto, tabla de partidos jugados, ausencias a partidos, faltas a entrenos e historial de lesiones.</li>
+                <li><strong className="text-slate-200">PDF de entrenamientos:</strong> Resumen de asistencia mensual o total con lugares y notas de sesión.</li>
+                <li><strong className="text-slate-200">PDF de acta:</strong> Ficha oficial imprimible del encuentro con alineación, resultado, crónica y bajas.</li>
               </ul>
             </div>
 
-            {/* Sección 6 — Reportes PDF */}
+            {/* Sección 6 — Cambio de Temporada y Archivo ZIP */}
             <div className="space-y-2 border-t border-slate-800/60 pt-4">
               <h5 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                📄 Reportes PDF
+                📦 Cambio de Temporada y Descarga en ZIP
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li><strong className="text-slate-200">PDF de plantilla completa:</strong> Genera un informe global con las estadísticas de todos los jugadores de la temporada.</li>
-                <li><strong className="text-slate-200">PDF individual por jugador:</strong> Incluye partidos jugados, goles, asistencias, tarjetas, faltas de asistencia con motivo y el historial de lesiones.</li>
-                <li><strong className="text-slate-200">PDF de entrenamientos:</strong> Pulsa <strong className="text-camarma-gold">Reporte PDF</strong> en la sección de entrenamientos, selecciona los meses que quieres incluir y genera el informe de asistencia.</li>
-                <li><strong className="text-slate-200">PDF del acta de partido:</strong> Desde el acta confirmada puedes imprimir el informe oficial del encuentro con alineación, goles (con minuto y penalti), resultado y crónica.</li>
+                <li>El botón <strong className="text-camarma-gold">Nueva Temporada</strong> permite reiniciar los datos para un nuevo curso conservando las fichas y datos personales de los futbolistas.</li>
+                <li><strong className="text-slate-200">Copia de Seguridad en ZIP:</strong> Puedes descargar un archivo ZIP que recopila automáticamente <strong className="text-amber-300">todos los PDFs de la temporada</strong>: el reporte general, la ficha de cada jugador, todas las actas de partidos y el historial de entrenamientos, organizados en carpetas.</li>
+                <li>La descarga en ZIP también se puede realizar en cualquier momento desde el botón <strong className="text-slate-200">Descargar ZIP</strong> en la barra de temporada.</li>
               </ul>
             </div>
 
