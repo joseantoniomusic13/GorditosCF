@@ -39,7 +39,8 @@ import {
   Trophy,
   TrendingUp,
   Target,
-  Zap
+  Zap,
+  MapPin
 } from "lucide-react";
 import AddPlayerForm from "./AddPlayerForm";
 import ActaPartido from "./ActaPartido";
@@ -84,6 +85,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   const [entrenamientos, setEntrenamientos] = useState([]);
   const [showAddTraining, setShowAddTraining] = useState(false);
   const [trainingDate, setTrainingDate] = useState("");
+  const [trainingLugar, setTrainingLugar] = useState("");
   const [trainingNotes, setTrainingNotes] = useState("");
   const [absentPlayerIds, setAbsentPlayerIds] = useState([]); // IDs de jugadores ausentes
   const [editingTrainingId, setEditingTrainingId] = useState(null);
@@ -95,8 +97,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [trainingsLoaded, setTrainingsLoaded] = useState(false);
-  const hasCheckedAutoTrainings = useRef(false);
   // Motivos de ausencia por jugador { [playerId]: string }
   const [absentPlayerReasons, setAbsentPlayerReasons] = useState({});
   // Modal de motivo de ausencia { player, currentReason }
@@ -179,7 +179,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         tList.push({ id: doc.id, ...doc.data() });
       });
       setEntrenamientos(tList);
-      setTrainingsLoaded(true);
     }, (error) => {
       console.error("Error cargando entrenamientos: ", error);
     });
@@ -200,66 +199,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
     return () => unsubscribe();
   }, []);
 
-  // Autocompletar entrenamientos pasados (Martes, Jueves y Viernes) que no se registraron
-  useEffect(() => {
-    if (!trainingsLoaded || hasCheckedAutoTrainings.current) return;
-    hasCheckedAutoTrainings.current = true;
 
-    const runAutoCompleter = async () => {
-      const today = new Date();
-      const todayStr = today.getFullYear() + "-" +
-                       String(today.getMonth() + 1).padStart(2, '0') + "-" +
-                       String(today.getDate()).padStart(2, '0');
-
-      // Fecha de inicio de la temporada activa (si existe)
-      // Nunca se autocompletan entrenamientos anteriores al inicio de temporada
-      const seasonStart = temporadaConfig?.fechaInicio || null;
-
-      // Verificar los últimos 60 días para autocompletar entrenamientos habituales
-      for (let i = 0; i <= 60; i++) {
-        const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-
-        // No generar sesiones anteriores al inicio de la temporada activa
-        if (seasonStart && dateStr < seasonStart) continue;
-
-        const dayOfWeek = d.getDay(); // 2 = Martes, 4 = Jueves, 5 = Viernes
-        if (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 5) {
-          let isPast = false;
-          if (dateStr < todayStr) {
-            isPast = true;
-          } else if (dateStr === todayStr) {
-            // Si es hoy, se completa automáticamente si ya pasó la hora del entrenamiento (22:00)
-            if (today.getHours() >= 22) {
-              isPast = true;
-            }
-          }
-
-          if (isPast) {
-            const hasSession = entrenamientos.some(t => t.fecha === dateStr);
-            if (!hasSession) {
-              try {
-                await addDoc(collection(db, "entrenamientos"), {
-                  fecha: dateStr,
-                  notas: "",
-                  faltas: [],
-                  createdAt: new Date().toISOString()
-                });
-                console.log("Sesión de entrenamiento autocompletada para el día:", dateStr);
-              } catch (err) {
-                console.error("Error al autocompletar entrenamiento para el día " + dateStr + ":", err);
-              }
-            }
-          }
-        }
-      }
-    };
-
-    runAutoCompleter();
-  }, [trainingsLoaded, entrenamientos, temporadaConfig]);
 
   // Guardar o actualizar entrenamiento
   const handleSaveTraining = async (e) => {
@@ -273,6 +213,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
     try {
       const trainingData = {
         fecha: trainingDate,
+        lugar: trainingLugar.trim(),
         notas: trainingNotes.trim(),
         faltas: absentPlayerIds,
         ausencias: absentPlayerIds.reduce((acc, id) => {
@@ -318,6 +259,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
       // Limpiar formulario
       setTrainingDate("");
+      setTrainingLugar("");
       setTrainingNotes("");
       setAbsentPlayerIds([]);
       setAbsentPlayerReasons({});
@@ -334,6 +276,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   const handleEditTraining = (training) => {
     setEditingTrainingId(training.id);
     setTrainingDate(training.fecha);
+    setTrainingLugar(training.lugar || "");
     setTrainingNotes(training.notas || "");
     setAbsentPlayerIds(training.faltas || []);
     setAbsentPlayerReasons(training.ausencias || {});
@@ -417,9 +360,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
       for (const d of entrenosSnap.docs) {
         await deleteDoc(doc(db, "entrenamientos", d.id));
       }
-
-      // 5. Resetear el flag de autocompletado para que vuelva a correr con la nueva config
-      hasCheckedAutoTrainings.current = false;
 
       setShowNuevaTemporadaModal(false);
       setNuevaTemporadaNombre("");
@@ -1024,7 +964,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
           // 3. Iterar por todos los entrenamientos
           entrenamientos.forEach(training => {
-            const absents = training.absentPlayerIds || [];
+            const absents = training.faltas || training.absentPlayerIds || [];
             absents.forEach(jugadorId => {
               if (statsMap[jugadorId]) {
                 statsMap[jugadorId].faltasEntrenamiento += 1;
@@ -1297,6 +1237,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
       const rowsHtml = monthData.list.map(s => {
         const d = new Date(s.fecha + "T00:00:00");
         const dateStr = d.toLocaleDateString("es-ES", { weekday: 'long', day: 'numeric', month: 'long' });
+        const lugarStr = s.lugar ? `<div style="font-size:11px; color:#d97706; font-weight:600; margin-top:3px;">📍 ${s.lugar}</div>` : "";
         
         // Faltas con motivos
         const absences = s.faltas || [];
@@ -1323,7 +1264,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
         return `
           <tr>
-            <td><strong>${dateStr}</strong></td>
+            <td><strong>${dateStr}</strong>${lugarStr}</td>
             <td>${s.notas ? s.notas : "<em style='color:#94a3b8;'>Sin observaciones</em>"}</td>
             <td>${absencesCellHtml}</td>
           </tr>
@@ -1513,12 +1454,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
   const getTrainingForDate = (dateStr) => {
     return entrenamientos.find(t => t.fecha === dateStr);
-  };
-
-  const isPreScheduledTrainingDay = (dateStr) => {
-    const d = new Date(dateStr + "T00:00:00");
-    const dayOfWeek = d.getDay(); // 0 = Domingo, 2 = Martes, 4 = Jueves, 5 = Viernes
-    return dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 5;
   };
 
 
@@ -2900,7 +2835,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   Entrenamientos Oficiales
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Horario habitual: Martes, Jueves y Viernes de 20:00 a 22:00.
+                  Planifica y gestiona las sesiones y el control de asistencia del equipo.
                 </p>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
@@ -2917,8 +2852,10 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   onClick={() => {
                     setEditingTrainingId(null);
                     setTrainingDate(new Date().toISOString().split("T")[0]); // Por defecto hoy
+                    setTrainingLugar("");
                     setTrainingNotes("");
                     setAbsentPlayerIds([]);
+                    setAbsentPlayerReasons({});
                     setShowAddTraining(!showAddTraining);
                   }}
                   className="flex-1 sm:flex-initial bg-gradient-to-r from-camarma-gold to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-slate-950 font-black text-xs py-3.5 px-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-camarma-gold/10 transition-all cursor-pointer transform active:scale-95 shrink-0 select-none uppercase tracking-wider"
@@ -2961,10 +2898,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   <span>Sesión Registrada</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-900/40 border border-dashed border-amber-500/50 rounded"></div>
-                  <span>Entrenamiento Planificado</span>
-                </div>
-                <div className="flex items-center gap-1.5">
                   <span className="text-base leading-none">⚽</span>
                   <span>Partido</span>
                 </div>
@@ -2988,7 +2921,6 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               <div className="grid grid-cols-7 gap-1.5">
                 {getDaysInMonth(calendarDate.getFullYear(), calendarDate.getMonth()).map((cell, idx) => {
                   const session = getTrainingForDate(cell.dateStr);
-                  const isPlan = isPreScheduledTrainingDay(cell.dateStr);
                   const partido = cell.dateStr ? partidos.find(p => p.fecha === cell.dateStr) : null;
 
                   // Calcular resultado del partido para imagen y badge
@@ -3061,14 +2993,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                     );
                   }
 
-                  // Celdas normales (entreno / planificado / libre)
+                  // Celdas normales (entreno / libre)
                   let cellClasses = "relative aspect-square rounded-2xl flex flex-col justify-between p-2 cursor-pointer transition-all border text-left active:scale-[0.97] select-none ";
                   if (!cell.isCurrentMonth) {
                     cellClasses += "opacity-35 bg-slate-900/20 border-slate-850 text-slate-600";
                   } else if (session) {
                     cellClasses += "bg-camarma-blue/10 border-camarma-blue/60 text-white hover:bg-camarma-blue/20";
-                  } else if (isPlan) {
-                    cellClasses += "border-dashed border-amber-500/35 bg-slate-900/40 text-slate-300 hover:border-amber-500/60 hover:bg-slate-900/60";
                   } else {
                     cellClasses += "border-slate-800/80 bg-slate-950/20 text-slate-450 hover:border-slate-700 hover:bg-slate-900/20";
                   }
@@ -3080,28 +3010,14 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                       onClick={() => {
                         if (session) {
                           handleEditTraining(session);
-                        } else {
-                          if (isPlan) {
-                            setEditingTrainingId(null);
-                            setTrainingDate(cell.dateStr);
-                            setTrainingNotes("");
-                            setAbsentPlayerIds([]);
-                            setShowAddTraining(true);
-                          } else {
-                            setConfirmDialog({
-                              title: "Sesión Extraordinaria",
-                              message: "Este día supuestamente no hay entrenamiento programado en el plan habitual. ¿Deseas programar una sesión extraordinaria para este día?",
-                              confirmText: "Programar",
-                              cancelText: "Cancelar",
-                              onConfirm: () => {
-                                setEditingTrainingId(null);
-                                setTrainingDate(cell.dateStr);
-                                setTrainingNotes("");
-                                setAbsentPlayerIds([]);
-                                setShowAddTraining(true);
-                              }
-                            });
-                          }
+                        } else if (cell.dateStr) {
+                          setEditingTrainingId(null);
+                          setTrainingDate(cell.dateStr);
+                          setTrainingLugar("");
+                          setTrainingNotes("");
+                          setAbsentPlayerIds([]);
+                          setAbsentPlayerReasons({});
+                          setShowAddTraining(true);
                         }
                       }}
                     >
@@ -3174,6 +3090,23 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                           />
                           <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
                             <CalendarDays className="w-5 h-5 text-camarma-gold" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Lugar / Instalación */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Lugar / Instalación</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={trainingLugar}
+                            onChange={(e) => setTrainingLugar(e.target.value)}
+                            placeholder="Ej. Campo Municipal, Polideportivo, Instalaciones Sur..."
+                            className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl pl-4 pr-11 py-3 text-sm outline-none focus:border-camarma-blue"
+                          />
+                          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <MapPin className="w-5 h-5 text-camarma-gold" />
                           </div>
                         </div>
                       </div>
@@ -3317,9 +3250,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                                   <span className="text-[10px] bg-slate-955 border border-slate-800 px-2 py-0.5 rounded text-slate-400 font-bold uppercase tracking-wider">
                                     {new Date(session.fecha + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long" })}
                                   </span>
-                                  <p className="text-xs text-slate-500 mt-0.5">
-                                    Horario: 20:00 - 22:00
-                                  </p>
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                                    <MapPin className="w-3.5 h-3.5 text-camarma-gold shrink-0" />
+                                    <span className="font-medium text-slate-300">
+                                      {session.lugar || "Lugar sin especificar"}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
 
@@ -3441,7 +3377,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                 Inicio de Entrenamientos
               </label>
               <p className="text-[10px] text-slate-500 mb-2">
-                A partir de esta fecha, el calendario mostrará los días de entrenamiento (Martes, Jueves y Viernes)
+                Fecha oficial de inicio de la temporada para el calendario y cómputo de estadísticas.
               </p>
               <div
                 onClick={() => { try { if (nuevaTemporadaFechaRef.current) nuevaTemporadaFechaRef.current.showPicker(); } catch(e){} }}
@@ -3870,9 +3806,9 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                 👟 Gestión de entrenamientos
               </h5>
               <ul className="text-xs text-slate-400 list-disc pl-5 space-y-1.5 leading-relaxed">
-                <li>En la pestaña <strong className="text-slate-200">Entrenamientos</strong> verás el calendario. Los días habituales (Martes, Jueves y Viernes) aparecen preseñalados.</li>
-                <li>Pulsa cualquier día para abrir el modal de sesión, añadir notas y apuntar las <strong className="text-camarma-gold">faltas de asistencia</strong> de cada jugador.</li>
-                <li>Los días fuera de lo habitual permiten crear una <strong className="text-camarma-gold">sesión extraordinaria</strong>.</li>
+                <li>En la pestaña <strong className="text-slate-200">Entrenamientos</strong> verás el calendario. Pulsa cualquier día o el botón <em>Registrar Sesión</em> para programar un entrenamiento.</li>
+                <li>Podrás especificar el <strong className="text-camarma-gold">lugar / instalación</strong> donde se entrena, notas y apuntar las <strong className="text-camarma-gold">faltas de asistencia</strong> (justificadas o injustificadas).</li>
+                <li>Solo contabilizan las asistencias y faltas de los entrenamientos y partidos creados oficialmente.</li>
                 <li>Los días completados muestran el escudo del club como marca de agua en el calendario.</li>
               </ul>
             </div>

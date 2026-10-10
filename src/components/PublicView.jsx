@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
-import { Shield, Calendar, Award, LogIn, Trophy, Clock, Heart, AlertCircle, ClipboardList, User, Activity, TrendingUp, X, ArrowLeftRight } from "lucide-react";
+import { Shield, Calendar, Award, LogIn, Trophy, Clock, Heart, AlertCircle, ClipboardList, User, Activity, TrendingUp, X, ArrowLeftRight, MapPin } from "lucide-react";
 
 const calcularEdad = (fechaNac) => {
   if (!fechaNac) return "N/A";
@@ -89,6 +89,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
   const [entrenamientos, setEntrenamientos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMatchDetails, setSelectedMatchDetails] = useState(null);
+  const [selectedTrainingDetails, setSelectedTrainingDetails] = useState(null);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [temporadaConfig, setTemporadaConfig] = useState(null); // { nombre, fechaInicio }
 
@@ -119,15 +120,6 @@ export default function PublicView({ onAdminClick, isAdmin }) {
   };
 
   const getTrainingForDate = (dateStr) => entrenamientos.find(t => t.fecha === dateStr);
-
-  const isPreScheduledTrainingDay = (dateStr) => {
-    if (!dateStr) return false;
-    // No mostrar como planificado si es anterior al inicio de temporada
-    if (temporadaConfig?.fechaInicio && dateStr < temporadaConfig.fechaInicio) return false;
-    const d = new Date(dateStr + 'T00:00:00');
-    const day = d.getDay();
-    return day === 2 || day === 4 || day === 5; // Mar, Jue, Vie
-  };
 
   // Escuchar jugadores en tiempo real
   useEffect(() => {
@@ -1043,7 +1035,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                   <ClipboardList className="w-5 h-5 text-camarma-gold" />
                   Entrenamientos Oficiales
                 </h3>
-                <p className="text-xs text-slate-400">Horario habitual: Martes, Jueves y Viernes de 20:00 a 22:00 · Campo Municipal de Camarma de Esteruelas</p>
+                <p className="text-xs text-slate-400">Calendario de entrenamientos y control de asistencia del equipo.</p>
               </div>
               <div className="shrink-0 bg-slate-900/60 px-4 py-2.5 rounded-2xl border border-slate-800/50 text-center">
                 <span className="text-[10px] font-extrabold uppercase text-camarma-gold tracking-widest block mb-0.5">Nota</span>
@@ -1079,10 +1071,6 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                   <span>Sesión Registrada</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-900/40 border border-dashed border-amber-500/50 rounded" />
-                  <span>Entrenamiento Planificado</span>
-                </div>
-                <div className="flex items-center gap-1.5">
                   <span className="text-base leading-none">⚽</span>
                   <span>Partido</span>
                 </div>
@@ -1101,7 +1089,6 @@ export default function PublicView({ onAdminClick, isAdmin }) {
               <div className="grid grid-cols-7 gap-1.5">
                 {getDaysInMonth(calendarDate.getFullYear(), calendarDate.getMonth()).map((cell, idx) => {
                   const session = getTrainingForDate(cell.dateStr);
-                  const isPlan = isPreScheduledTrainingDay(cell.dateStr);
                   const partido = cell.dateStr ? partidos.find(p => p.fecha === cell.dateStr) : null;
 
                   let partidoInfo = null;
@@ -1169,15 +1156,17 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                   if (!cell.isCurrentMonth) {
                     cellClasses += "opacity-35 bg-slate-900/20 border-slate-850 text-slate-600";
                   } else if (session) {
-                    cellClasses += "bg-camarma-blue/10 border-camarma-blue/60 text-white";
-                  } else if (isPlan) {
-                    cellClasses += "border-dashed border-amber-500/35 bg-slate-900/40 text-slate-300";
+                    cellClasses += "bg-camarma-blue/10 border-camarma-blue/60 text-white cursor-pointer hover:border-camarma-blue active:scale-95";
                   } else {
                     cellClasses += "border-slate-800/80 bg-slate-950/20 text-slate-450";
                   }
 
                   return (
-                    <div key={idx} className={cellClasses}>
+                    <div
+                      key={idx}
+                      className={cellClasses}
+                      onClick={() => session && setSelectedTrainingDetails(session)}
+                    >
                       {session && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 z-0">
                           <img src="./escudo.jpg" alt="" className="w-8 h-8 object-contain" />
@@ -1194,6 +1183,118 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                 })}
               </div>
             </div>
+
+            {/* Listado de Sesiones Registradas */}
+            {entrenamientos.length > 0 && (
+              <div className="bg-slate-800/60 border border-slate-700/50 rounded-3xl p-5 shadow-xl backdrop-blur-md space-y-4">
+                <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-camarma-gold" />
+                  Sesiones Registradas ({entrenamientos.length})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[...entrenamientos]
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                    .slice(0, 8)
+                    .map(session => (
+                      <div
+                        key={session.id}
+                        onClick={() => setSelectedTrainingDetails(session)}
+                        className="bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 rounded-2xl p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.98]"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 text-center min-w-[55px] shrink-0">
+                            <span className="block text-[8px] font-bold uppercase text-camarma-gold leading-none">
+                              {new Date(session.fecha + "T00:00:00").toLocaleDateString("es-ES", { month: "short" })}
+                            </span>
+                            <span className="block text-base font-extrabold text-white leading-none mt-1">
+                              {new Date(session.fecha + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric" })}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              {new Date(session.fecha + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long" })}
+                            </span>
+                            <div className="flex items-center gap-1.5 text-xs text-amber-400 font-medium mt-0.5 truncate">
+                              <MapPin className="w-3 h-3 text-camarma-gold shrink-0" />
+                              <span className="truncate">{session.lugar || "Lugar sin especificar"}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
+                            {session.faltas && session.faltas.length > 0 ? `❌ ${session.faltas.length}` : "✔️ 100%"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Detalle de Entrenamiento */}
+            {selectedTrainingDetails && (
+              <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="bg-slate-900 border border-slate-700/60 rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden max-h-[90vh] animate-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-camarma-blue/15 border border-camarma-blue/30 flex items-center justify-center">
+                        <ClipboardList className="w-5 h-5 text-camarma-gold" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-white text-base leading-tight">Sesión de Entrenamiento</h4>
+                        <span className="text-[10px] font-bold text-camarma-gold uppercase tracking-wider">
+                          {new Date(selectedTrainingDetails.fecha + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedTrainingDetails(null)}
+                      className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-4 overflow-y-auto">
+                    {/* Lugar */}
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Lugar / Instalación</span>
+                      <div className="flex items-center gap-2 text-white text-sm font-semibold">
+                        <MapPin className="w-4 h-4 text-camarma-gold shrink-0" />
+                        <span>{selectedTrainingDetails.lugar || "Campo Municipal / Habitual"}</span>
+                      </div>
+                    </div>
+
+                    {/* Notas */}
+                    {selectedTrainingDetails.notas && (
+                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Notas / Trabajo</span>
+                        <p className="text-xs text-slate-300 leading-relaxed">{selectedTrainingDetails.notas}</p>
+                      </div>
+                    )}
+
+                    {/* Resumen de Asistencia */}
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Control de Asistencia</span>
+                      <p className="text-xs text-slate-300">
+                        {selectedTrainingDetails.faltas && selectedTrainingDetails.faltas.length > 0
+                          ? `Registradas ${selectedTrainingDetails.faltas.length} bajas o ausencias.`
+                          : "✔️ 100% de asistencia de la plantilla."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-slate-800 bg-slate-950/40 text-center">
+                    <button
+                      onClick={() => setSelectedTrainingDetails(null)}
+                      className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-3 rounded-xl transition-all uppercase tracking-wider cursor-pointer"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         )}
