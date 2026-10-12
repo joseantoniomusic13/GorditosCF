@@ -401,7 +401,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
           ` : ""}
 
           ${match.cronica ? `
-            <div class="section-title">Crónica del Míster</div>
+            <div class="section-title">Crónica del Partido</div>
             <div class="cronica">
               "${match.cronica}"
             </div>
@@ -1504,7 +1504,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                         </svg>
                       </div>
                       <h4 className="text-xs font-extrabold uppercase text-camarma-gold tracking-wider mb-2">
-                        ✍️ Crónica del Míster
+                        ✍️ Crónica del Partido
                       </h4>
                       <p className="text-sm text-slate-300 leading-relaxed italic whitespace-pre-line font-medium">
                         "{selectedMatchDetails.cronica}"
@@ -1621,6 +1621,47 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                       ))}
                                     </div>
                                   </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sustituciones y Cambios del Partido */}
+                      {selectedMatchDetails.sustituciones?.length > 0 && (
+                        <div className="pt-3 border-t border-slate-800/80">
+                          <span className="block text-[8px] font-extrabold uppercase text-orange-400 mb-2">
+                            🔄 Sustituciones ({selectedMatchDetails.sustituciones.length})
+                          </span>
+                          <div className="space-y-1.5">
+                            {selectedMatchDetails.sustituciones.map((sub, sIdx) => {
+                              const pSale = jugadores.find(j => j.id === sub.saleId);
+                              const pEntra = jugadores.find(j => j.id === sub.entraId);
+                              const esReingreso = selectedMatchDetails.sustituciones.slice(0, sIdx).some(prev => prev.saleId === sub.entraId);
+
+                              return (
+                                <div key={sub.id || sIdx} className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-mono font-black text-orange-400 text-xs shrink-0">
+                                      {sub.minuto}'
+                                    </span>
+                                    <div className="flex items-center gap-1.5 text-[11px] truncate">
+                                      <span className="text-red-400 font-bold truncate">🔴 {pSale?.nombre || "Jugador"}</span>
+                                      <span className="text-slate-500 shrink-0">➡️</span>
+                                      <span className="text-emerald-400 font-bold truncate">🟢 {pEntra?.nombre || "Jugador"}</span>
+                                      {esReingreso && (
+                                        <span className="text-[9px] bg-blue-500/15 border border-blue-500/30 text-blue-300 font-extrabold px-1.5 py-0.2 rounded-md shrink-0">
+                                          🔄 Reingreso
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {sub.motivo && (
+                                    <span className="text-[9px] text-slate-400 italic truncate max-w-[120px] ml-2">
+                                      {sub.motivo}
+                                    </span>
+                                  )}
                                 </div>
                               );
                             })}

@@ -513,6 +513,34 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
           </tbody>
         </table>
 
+        ${match.sustituciones && match.sustituciones.length > 0 ? `
+          <div class="section-title">Sustituciones y Cambios (${match.sustituciones.length})</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:15%; text-align:center;">Minuto</th>
+                <th style="width:35%;">🔴 Jugador que Sale</th>
+                <th style="width:35%;">🟢 Jugador que Entra</th>
+                <th style="width:15%;">Motivo / Nota</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${match.sustituciones.map(s => {
+                const pSale = jugadores.find(j => j.id === s.saleId);
+                const pEntra = jugadores.find(j => j.id === s.entraId);
+                return `
+                  <tr>
+                    <td style="text-align:center; font-weight:800; color:#ea580c;">${s.minuto}'</td>
+                    <td style="color:#dc2626; font-weight:600;">🔴 ${pSale ? pSale.nombre : "Jugador"}</td>
+                    <td style="color:#16a34a; font-weight:600;">🟢 ${pEntra ? pEntra.nombre : "Jugador"}</td>
+                    <td style="color:#64748b; font-size:10px;">${s.motivo || "-"}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        ` : ''}
+
         ${matchFaltas.length > 0 ? `
           <div class="section-title">Bajas y Faltas al Partido (${matchFaltas.length})</div>
           <table>
@@ -526,7 +554,7 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
         ` : ''}
 
         ${match.cronica ? `
-          <div class="section-title">Crónica del Míster</div>
+          <div class="section-title">Crónica del Partido</div>
           <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; font-size:11.5px; line-height:1.5; color:#334155; font-style:italic;">
             "${match.cronica}"
           </div>

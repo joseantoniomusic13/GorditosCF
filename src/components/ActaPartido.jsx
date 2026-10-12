@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../firebase";
 import { doc, updateDoc, increment } from "firebase/firestore";
-import { X, Check, ChevronDown, User, Shield, ArrowLeftRight, ClipboardList, Award, Activity, UserX, FileText, Upload, Trash2, ExternalLink, Download, Loader2 } from "lucide-react";
+import { X, Check, ChevronDown, ChevronRight, User, Shield, ArrowLeftRight, ArrowRight, Edit3, Plus, ClipboardList, Award, Activity, UserX, FileText, Upload, Trash2, ExternalLink, Download, Loader2 } from "lucide-react";
 import { LOGO_BASE64 } from "../logoBase64";
 import {
   saveMatchPdfToFirestore,
@@ -9,6 +9,10 @@ import {
   deleteMatchPdfFromFirestore,
   openOrDownloadPdf
 } from "../utils/matchPdfFirestore";
+import {
+  calcularEstadisticasCambios,
+  obtenerTramosJugador
+} from "../utils/matchSubstitutions";
 
 // ─────────────────────────────────────────────
 // FORMACIONES DISPONIBLES
@@ -82,9 +86,258 @@ const FORMACIONES = {
 };
 
 // ─────────────────────────────────────────────
+// MODAL DE REGISTRO / EDICIÓN DE SUSTITUCIÓN (CAMBIO VOLANTE / ROTATIVO)
+// ─────────────────────────────────────────────
+function ModalSubstitucion({
+  sub,
+  jugadores,
+  titularesIds = [],
+  suplentesIds = [],
+  sustitucionesExistentes = [],
+  onSave,
+  onClose
+}) {
+  const [minuto, setMinuto] = useState(sub?.minuto !== undefined && sub?.minuto !== null ? String(sub.minuto) : "");
+  const [saleId, setSaleId] = useState(sub?.saleId || "");
+  const [entraId, setEntraId] = useState(sub?.entraId || "");
+  const [motivo, setMotivo] = useState(sub?.motivo || "");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const convocadosIds = useMemo(() => {
+    return Array.from(new Set([...titularesIds, ...suplentesIds].filter(Boolean)));
+  }, [titularesIds, suplentesIds]);
+
+  const esReingreso = useMemo(() => {
+    if (!entraId) return false;
+    return (sustitucionesExistentes || []).some(s => s.saleId === entraId && s.id !== sub?.id);
+  }, [entraId, sustitucionesExistentes, sub]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    const minNum = parseInt(minuto);
+    if (isNaN(minNum) || minNum < 1 || minNum > 120) {
+      setErrorMsg("Introduce un minuto de juego válido (entre 1' y 120').");
+      return;
+    }
+    if (!saleId) {
+      setErrorMsg("Selecciona qué jugador sale al banquillo.");
+      return;
+    }
+    if (!entraId) {
+      setErrorMsg("Selecciona qué jugador entra al campo.");
+      return;
+    }
+    if (saleId === entraId) {
+      setErrorMsg("El jugador que sale y el que entra no pueden ser la misma persona.");
+      return;
+    }
+
+    onSave({
+      id: sub?.id,
+      minuto: minNum,
+      saleId,
+      entraId,
+      motivo: motivo.trim()
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 font-sans">
+        
+        {/* Cabecera */}
+        <div className="p-5 border-b border-slate-800 bg-slate-955 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-orange-400 border border-orange-500/25 flex items-center justify-center font-black text-lg">
+              🔄
+            </div>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-orange-400">
+                Cambio Volante / Sustitución
+              </span>
+              <h3 className="text-base font-black text-white">
+                {sub?.id ? "Editar Sustitución" : "Registrar Cambio"}
+              </h3>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-750 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {errorMsg && (
+            <div className="bg-red-950/40 border border-red-900/50 text-red-400 text-xs p-3 rounded-xl font-bold flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Minuto del cambio */}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+              Minuto de Juego
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={minuto}
+                onChange={(e) => setMinuto(e.target.value)}
+                placeholder="Ej. 35"
+                className="flex-1 bg-slate-950 border border-slate-800 focus:border-orange-500 text-white rounded-xl px-3 py-2.5 text-sm font-bold font-mono outline-none"
+                autoFocus
+              />
+              <div className="flex gap-1.5">
+                {[30, 45, 60, 75].map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMinuto(String(m))}
+                    className="px-2.5 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-bold rounded-xl cursor-pointer transition-colors"
+                  >
+                    {m}'
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Jugador que sale */}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
+              <span>🔴</span> Sale al Banquillo
+            </label>
+            <div className="relative">
+              <select
+                value={saleId}
+                onChange={(e) => setSaleId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-red-500 text-white rounded-xl px-3 py-2.5 text-xs font-bold outline-none appearance-none cursor-pointer"
+                style={{ backgroundColor: "#0f172a", color: "#ffffff" }}
+              >
+                <option value="">-- Selecciona jugador que sale --</option>
+                {convocadosIds.map(id => {
+                  const j = (jugadores || []).find(p => p.id === id);
+                  if (!j) return null;
+                  const esTitular = titularesIds.includes(id);
+                  return (
+                    <option key={id} value={id}>
+                      {j.nombre} {esTitular ? "(Titular)" : "(Banquillo / En campo)"}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Jugador que entra */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                <span>🟢</span> Entra al Campo
+              </label>
+              {esReingreso && (
+                <span className="text-[10px] bg-blue-500/15 border border-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full font-bold">
+                  🔄 Reingreso al terreno
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <select
+                value={entraId}
+                onChange={(e) => setEntraId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 text-white rounded-xl px-3 py-2.5 text-xs font-bold outline-none appearance-none cursor-pointer"
+                style={{ backgroundColor: "#0f172a", color: "#ffffff" }}
+              >
+                <option value="">-- Selecciona jugador que entra --</option>
+                {/* 1. Suplentes */}
+                {suplentesIds.map(id => {
+                  const j = (jugadores || []).find(p => p.id === id);
+                  if (!j) return null;
+                  return (
+                    <option key={id} value={id}>
+                      {j.nombre} (Banquillo)
+                    </option>
+                  );
+                })}
+                {/* 2. Titulares u otros jugadores que hayan salido antes (reingreso) */}
+                {convocadosIds.filter(id => !suplentesIds.includes(id)).map(id => {
+                  const j = (jugadores || []).find(p => p.id === id);
+                  if (!j) return null;
+                  return (
+                    <option key={id} value={id}>
+                      {j.nombre} (🔄 Reingreso - Convocado)
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Motivo opcional */}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+              Motivo o Nota del Cambio (Opcional)
+            </label>
+            <input
+              type="text"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ej. Táctico, Rotación, Molestias, Descanso..."
+              className="w-full bg-slate-950 border border-slate-800 focus:border-camarma-blue text-white rounded-xl px-3 py-2 text-xs font-medium outline-none"
+            />
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-orange-500/20 transition-all cursor-pointer active:scale-98"
+            >
+              {sub?.id ? "Actualizar Cambio" : "Guardar Cambio"}
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // MODAL DE ESTADÍSTICAS DE UN JUGADOR EN EL PARTIDO
 // ─────────────────────────────────────────────
-function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaInicial = "", onSave, onClose, onRemove }) {
+function ModalJugadorActa({
+  jugador,
+  stats,
+  jugadoresPlantilla,
+  motivoAusenciaInicial = "",
+  sustituciones = [],
+  titularesIds = [],
+  suplentesIds = [],
+  onOpenSubModal = () => {},
+  onDeleteSub = () => {},
+  onSave,
+  onClose,
+  onRemove
+}) {
   const [minutos, setMinutos] = useState(stats.minutos ?? 90);
   const [goles, setGoles] = useState(stats.goles ?? 0);
   const [golesContra, setGolesContra] = useState(stats.golesContra ?? 0);
@@ -96,6 +349,17 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
   const [sustituido, setSustituido] = useState(stats.sustituido ?? false);
   const [minCambio, setMinCambio] = useState(stats.minCambio ?? "");
   const [sustituidoPorId, setSustituidoPorId] = useState(stats.sustituidoPorId ?? "");
+
+  // Tramos calculados y sustituciones específicas de este jugador
+  const tramosInfo = useMemo(() => {
+    if (!jugador) return null;
+    return obtenerTramosJugador(jugador.id, titularesIds, suplentesIds, sustituciones, 90);
+  }, [jugador, titularesIds, suplentesIds, sustituciones]);
+
+  const subsDelJugador = useMemo(() => {
+    if (!jugador) return [];
+    return (sustituciones || []).filter(s => s.saleId === jugador.id || s.entraId === jugador.id);
+  }, [jugador, sustituciones]);
 
   // Detalle de goles y asistencias para registrar los minutos y penaltis
   const [golesDetalle, setGolesDetalle] = useState(() => {
@@ -146,8 +410,8 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
 
   const handleSave = () => {
     const minCambioInt = sustituido ? (parseInt(minCambio) || 0) : null;
-    // Si no asiste, minutos = 0
-    const minutosFinales = !convocado ? 0 : (sustituido && minCambioInt ? minCambioInt : (parseInt(minutos) || 0));
+    // Si no asiste, minutos = 0. Los minutos son libres y editables (no se fuerzan al minCambio).
+    const minutosFinales = !convocado ? 0 : (parseInt(minutos) || 0);
     onSave({
       minutos: minutosFinales,
       goles: !convocado ? 0 : (parseInt(goles) || 0),
@@ -406,6 +670,7 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
               {[45, 60, 90].map(m => (
                 <button
                   key={m}
+                  type="button"
                   onClick={() => setMinutos(m)}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border ${minutos === m ? "bg-camarma-blue border-camarma-blue text-white shadow-sm" : "bg-slate-850 border-slate-800 text-slate-400 hover:text-white"}`}
                 >
@@ -413,6 +678,37 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
                 </button>
               ))}
             </div>
+
+            {/* Cálculo automático según sustituciones registradas */}
+            {tramosInfo && (
+              <div className="bg-slate-950/40 border border-slate-800 rounded-2xl p-3 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-slate-400 font-bold">⏱️ Según cambios:</span>
+                    <span className="text-camarma-gold font-mono font-black text-sm">{tramosInfo.totalMinutos}'</span>
+                  </div>
+                  {minutos !== tramosInfo.totalMinutos && (
+                    <button
+                      type="button"
+                      onClick={() => setMinutos(tramosInfo.totalMinutos)}
+                      className="px-2.5 py-1 bg-camarma-blue/20 hover:bg-camarma-blue/30 border border-camarma-blue/40 text-camarma-blue-light text-[10px] font-extrabold rounded-lg cursor-pointer transition-all active:scale-95"
+                    >
+                      Aplicar {tramosInfo.totalMinutos}'
+                    </button>
+                  )}
+                </div>
+                {tramosInfo.tramos.length > 0 && (
+                  <div className="space-y-1 pt-1.5 border-t border-slate-850/60">
+                    {tramosInfo.tramos.map((tr, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span>• Tramo {idx + 1}: {tr.desde}' a {tr.hasta}' ({tr.minutos}')</span>
+                        <span className="text-[10px] text-slate-500 italic truncate max-w-[170px]">{tr.motivo || tr.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Goles Favor / Contra / Asistencias */}
@@ -758,66 +1054,67 @@ function ModalJugadorActa({ jugador, stats, jugadoresPlantilla, motivoAusenciaIn
             </div>
           </div>
 
-          {/* Sustitución */}
-          <div className="space-y-4 border-t border-slate-850/60 pt-4">
-            <div className="flex items-center justify-between bg-slate-950/20 p-3 rounded-2xl border border-slate-850/50">
-              <span className="text-xs font-bold text-slate-300 flex items-center gap-2 select-none">
-                <ArrowLeftRight className="w-4 h-4 text-orange-400" /> ¿Fue sustituido?
+          {/* Sustituciones e Intervenciones de este Jugador */}
+          <div className="space-y-3 border-t border-slate-850/60 pt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <ArrowLeftRight className="w-4 h-4 text-orange-400" /> Sustituciones y Cambios ({subsDelJugador.length})
               </span>
               <button
-                onClick={() => setSustituido(!sustituido)}
-                className={`px-4 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer select-none ${sustituido ? "bg-orange-600/20 border-orange-500/35 text-orange-400" : "bg-slate-850 border-slate-800 text-slate-400"}`}
+                type="button"
+                onClick={() => onOpenSubModal({ saleId: jugador?.id, entraId: "" })}
+                className="px-2.5 py-1 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-[10px] font-bold rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-1"
               >
-                {sustituido ? "🔄 Sí" : "No"}
+                <Plus className="w-3 h-3" /> Añadir cambio
               </button>
             </div>
-            
-            {sustituido && (
-              <div className="space-y-3 bg-slate-950/40 p-4 border border-slate-850 rounded-2xl animate-in fade-in duration-200">
-                <div className="grid grid-cols-3 gap-3 items-center">
-                  <label className="text-xs font-bold text-slate-400 col-span-1">Minuto cambio</label>
-                  <div className="col-span-2 space-y-1">
-                    <input
-                      type="number"
-                      value={minCambio}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setMinCambio(val);
-                        // Auto-calcular minutos del jugador que sale
-                        const parsed = parseInt(val);
-                        if (!isNaN(parsed) && parsed >= 1 && parsed <= 120) {
-                          setMinutos(parsed);
-                        }
-                      }}
-                      placeholder="Ej. 65"
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-orange-500 font-mono"
-                    />
-                    {minCambio && !isNaN(parseInt(minCambio)) && (
-                      <p className="text-[9px] text-orange-400/80 font-bold">
-                        ⏱️ Jugará {parseInt(minCambio)}\'  · El suplente entrará en el {parseInt(minCambio)}\' y jugará {Math.max(0, 90 - parseInt(minCambio))}\'
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3 items-center">
-                  <label className="text-xs font-bold text-slate-400 col-span-1">Entra</label>
-                  <div className="relative col-span-2">
-                    <select
-                      value={sustituidoPorId}
-                      onChange={(e) => setSustituidoPorId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-bold outline-none appearance-none cursor-pointer focus:border-camarma-blue"
-                      style={{ backgroundColor: "#0f172a", color: "#ffffff" }}
-                    >
-                      <option value="" className="bg-slate-900 text-white" style={{ backgroundColor: "#0f172a", color: "#ffffff" }}>-- Selecciona --</option>
-                      {jugadoresPlantilla.map(j => (
-                        <option key={j.id} value={j.id} className="bg-slate-900 text-white" style={{ backgroundColor: "#0f172a", color: "#ffffff" }}>{j.nombre}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                      <ChevronDown className="w-3.5 h-3.5" />
+
+            {subsDelJugador.length === 0 ? (
+              <p className="text-[11px] text-slate-500 italic bg-slate-950/20 p-3 rounded-xl border border-slate-850/50">
+                No hay cambios registrados en los que participe {jugador?.nombre}.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {subsDelJugador.map(sub => {
+                  const esSale = sub.saleId === jugador?.id;
+                  const otroId = esSale ? sub.entraId : sub.saleId;
+                  const otroJug = (jugadoresPlantilla || []).find(j => j.id === otroId);
+                  return (
+                    <div key={sub.id} className="flex items-center justify-between bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-8 h-8 rounded-lg bg-orange-500/15 text-orange-400 border border-orange-500/25 font-mono font-black text-xs flex items-center justify-center shrink-0">
+                          {sub.minuto}'
+                        </span>
+                        <div className="text-xs min-w-0">
+                          <span className={`font-bold block leading-tight ${esSale ? "text-red-400" : "text-emerald-400"}`}>
+                            {esSale ? "🔴 Sale al banquillo" : "🟢 Entra al terreno"}
+                          </span>
+                          <span className="text-slate-400 text-[11px] block truncate mt-0.5">
+                            {esSale ? `Entra: ${otroJug?.nombre || "Compañero"}` : `Sale: ${otroJug?.nombre || "Compañero"}`}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onOpenSubModal(sub)}
+                          className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Editar sustitución"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteSub(sub.id)}
+                          className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Eliminar sustitución"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -933,6 +1230,32 @@ export default function ActaPartido({ match, jugadores, onClose }) {
   });
   const [absenceModal, setAbsenceModal] = useState(null); // { player, mode: 'add'|'edit' }
   const [absenceReasonInput, setAbsenceReasonInput] = useState("");
+  const [playerActionModal, setPlayerActionModal] = useState(null); // jugador seleccionado para gestionar acción
+
+  // ── Sustituciones y Cambios Rotativos / Volantes ──────────────
+  const [sustituciones, setSustituciones] = useState(() => {
+    if (match.sustituciones && Array.isArray(match.sustituciones)) {
+      return match.sustituciones;
+    }
+    // Migración inicial para partidos antiguos con sustituciones simples
+    const migradas = [];
+    if (match.statsJugadores) {
+      Object.entries(match.statsJugadores).forEach(([id, st]) => {
+        if (st.sustituido && st.minCambio && st.sustituidoPorId) {
+          migradas.push({
+            id: `sub_${id}_${st.minCambio}`,
+            minuto: parseInt(st.minCambio) || 0,
+            saleId: id,
+            entraId: st.sustituidoPorId,
+            motivo: ""
+          });
+        }
+      });
+      migradas.sort((a, b) => a.minuto - b.minuto);
+    }
+    return migradas;
+  });
+  const [modalSub, setModalSub] = useState(null); // null | { id?: string, minuto: number|"", saleId: string, entraId: string, motivo?: string }
 
   const [modalSlot, setModalSlot] = useState(null); // slotId o "suplente_{id}"
   const [selectorSlot, setSelectorSlot] = useState(null); // slotId que está eligiendo jugador
@@ -1072,6 +1395,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           mvpJugadorId: mvpJugadorId || null,
           alineacion: { formacion, asignaciones, suplentes },
           statsJugadores,
+          sustituciones: sustituciones || [],
           golesCamarma,
           golesGorditos: golesCamarma,
           golesRival,
@@ -1089,7 +1413,61 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [statsJugadores, golesCamarma, golesRival, cronica, mvpJugadorId, formacion, asignaciones, suplentes, matchFaltas, matchAusencias]);
+  }, [statsJugadores, sustituciones, golesCamarma, golesRival, cronica, mvpJugadorId, formacion, asignaciones, suplentes, matchFaltas, matchAusencias]);
+
+  // ── Handlers para Gestión de Sustituciones (Cambios Volantes / Rotativos) ──
+  const sincronizarMinutosConSustituciones = (listaSubs) => {
+    const titularesIds = Object.values(asignaciones).filter(Boolean);
+    const suplentesIds = suplentes;
+    const est = calcularEstadisticasCambios(titularesIds, suplentesIds, listaSubs, 90);
+
+    setStatsJugadores(prev => {
+      const next = { ...prev };
+      Object.entries(est).forEach(([id, data]) => {
+        const prevStats = next[id] || {};
+        next[id] = {
+          ...prevStats,
+          minutos: data.minutosTotales
+        };
+      });
+      return next;
+    });
+  };
+
+  const handleSaveSub = (subData) => {
+    const minInt = Math.min(120, Math.max(1, parseInt(subData.minuto) || 0));
+    const finalSub = {
+      id: subData.id || `sub_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      minuto: minInt,
+      saleId: subData.saleId,
+      entraId: subData.entraId,
+      motivo: (subData.motivo || "").trim()
+    };
+
+    setSustituciones(prev => {
+      const filtered = prev.filter(s => s.id !== finalSub.id);
+      const next = [...filtered, finalSub].sort((a, b) => a.minuto - b.minuto);
+      sincronizarMinutosConSustituciones(next);
+      return next;
+    });
+
+    setModalSub(null);
+    showToast(`Cambio registrado en el min ${minInt}'. Minutos actualizados.`, "success");
+  };
+
+  const handleDeleteSub = (subId) => {
+    setSustituciones(prev => {
+      const next = prev.filter(s => s.id !== subId);
+      sincronizarMinutosConSustituciones(next);
+      return next;
+    });
+    showToast("Sustitución eliminada. Minutos recalculados.", "info");
+  };
+
+  const handleRecalcularMinutos = () => {
+    sincronizarMinutosConSustituciones(sustituciones);
+    showToast("Minutos de la plantilla sincronizados según los cambios.", "success");
+  };
 
   // ── Refs para sincronización de estadísticas de plantilla ──────────
   // 'statsJugadoresConfirmados' es el campo de Firestore que registra exactamente
@@ -1338,25 +1716,10 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         return next;
       });
 
-      setStatsJugadores(prev => {
-        const updated = { ...prev, [jugadorId]: newStats };
-        // Si el jugador que sale fue sustituido y tiene minuto de cambio,
-        // actualizar automáticamente los minutos del jugador que entra
-        if (newStats.sustituido && newStats.sustituidoPorId && newStats.minCambio) {
-          const minEntrada = Math.max(0, 90 - newStats.minCambio);
-          const sustitutoActual = updated[newStats.sustituidoPorId] || {
-            minutos: minEntrada, goles: 0, golesContra: 0, asistencias: 0,
-            amarillas: 0, rojas: 0, convocado: true,
-            golesDetalle: [], asistenciasDetalle: [],
-            amarillasDetalle: [], rojasDetalle: []
-          };
-          updated[newStats.sustituidoPorId] = {
-            ...sustitutoActual,
-            minutos: minEntrada
-          };
-        }
-        return updated;
-      });
+      setStatsJugadores(prev => ({
+        ...prev,
+        [jugadorId]: newStats
+      }));
     }
 
     setModalSlot(null);
@@ -1455,6 +1818,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         alineacion: { formacion, asignaciones, suplentes },
         statsJugadores: newStats,
         statsJugadoresConfirmados: newStats, // baseline fiable para futuros diffs
+        sustituciones: sustituciones || [],
         faltas: newFaltas,
         ausencias: matchAusencias,
         statsFaltasConfirmadas: newFaltas,
@@ -1757,7 +2121,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           ` : ""}
 
           ${cronica ? `
-            <div class="section-title">Crónica del Míster</div>
+            <div class="section-title">Crónica del Partido</div>
             <div class="cronica">
               "${cronica}"
             </div>
@@ -1781,6 +2145,34 @@ export default function ActaPartido({ match, jugadores, onClose }) {
               ${rowsHtml}
             </tbody>
           </table>
+
+          ${sustituciones && sustituciones.length > 0 ? `
+            <div class="section-title">Sustituciones y Cambios del Partido</div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%;" class="text-center">Minuto</th>
+                  <th style="width: 35%;">🔴 Jugador que Sale</th>
+                  <th style="width: 35%;">🟢 Jugador que Entra</th>
+                  <th style="width: 15%;">Motivo / Nota</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sustituciones.map(s => {
+                  const pSale = getJugador(s.saleId);
+                  const pEntra = getJugador(s.entraId);
+                  return `
+                    <tr>
+                      <td class="text-center font-mono" style="font-weight: 800; color: #ea580c;">${s.minuto}'</td>
+                      <td style="color: #dc2626; font-weight: 600;">🔴 ${pSale ? pSale.nombre : "Jugador"}</td>
+                      <td style="color: #16a34a; font-weight: 600;">🟢 ${pEntra ? pEntra.nombre : "Jugador"}</td>
+                      <td style="color: #64748b; font-size: 11px;">${s.motivo || "-"}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          ` : ""}
 
           ${bajasReport.length > 0 ? `
             <div class="section-title">Bajas y Faltas al Partido</div>
@@ -1999,6 +2391,112 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 </div>
               </div>
 
+              {/* Sustituciones y Cambios del Partido Card */}
+              <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-xl backdrop-blur-md space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-850 pb-3">
+                  <div className="flex items-center gap-2">
+                    <ArrowLeftRight className="w-4.5 h-4.5 text-orange-400" />
+                    <div>
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                        Sustituciones y Cambios ({sustituciones.length})
+                      </h4>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Cambios volantes: reingresos ilimitados
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {sustituciones.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleRecalcularMinutos}
+                        className="text-[10px] font-extrabold text-camarma-blue-light hover:text-white px-2.5 py-1.5 rounded-xl bg-camarma-blue/15 hover:bg-camarma-blue/25 border border-camarma-blue/30 transition-all cursor-pointer select-none active:scale-95"
+                        title="Recalcular automáticamente los minutos de toda la plantilla según este historial de cambios"
+                      >
+                        ⏱️ Recalcular Minutos
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setModalSub({ minuto: "", saleId: "", entraId: "", motivo: "" })}
+                      className="flex items-center gap-1.5 text-[10px] font-black uppercase text-white px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-md shadow-orange-500/20 transition-all cursor-pointer active:scale-95 select-none"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Registrar Cambio
+                    </button>
+                  </div>
+                </div>
+
+                {sustituciones.length === 0 ? (
+                  <div className="text-center py-5 px-4 bg-slate-955/60 border border-dashed border-slate-800 rounded-2xl">
+                    <p className="text-xs text-slate-400 font-medium">No hay sustituciones registradas para este partido.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Pulsa en "+ Registrar Cambio" para anotar cuando un jugador sale o entra al terreno.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {sustituciones.map((sub, idx) => {
+                      const pSale = getJugador(sub.saleId);
+                      const pEntra = getJugador(sub.entraId);
+                      const esReingreso = sustituciones.slice(0, idx).some(prev => prev.saleId === sub.entraId);
+
+                      return (
+                        <div
+                          key={sub.id || idx}
+                          className="flex items-center justify-between bg-slate-955 border border-slate-850 hover:border-orange-500/40 rounded-2xl p-3 transition-all shadow-sm"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 text-orange-400 font-mono font-black text-sm flex items-center justify-center shrink-0">
+                              {sub.minuto}'
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <div className="flex items-center gap-2 flex-wrap text-xs">
+                                <span className="font-bold text-red-400">
+                                  🔴 Sale: {pSale ? pSale.nombre : "Jugador"}
+                                </span>
+                                <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <span className="font-bold text-emerald-400">
+                                  🟢 Entra: {pEntra ? pEntra.nombre : "Jugador"}
+                                </span>
+                                {esReingreso && (
+                                  <span className="text-[9px] bg-blue-500/15 border border-blue-500/30 text-blue-300 font-extrabold px-1.5 py-0.5 rounded-md">
+                                    🔄 Reingreso
+                                  </span>
+                                )}
+                              </div>
+                              {sub.motivo && (
+                                <span className="text-[10px] text-slate-400 block mt-0.5 italic truncate">
+                                  Nota: {sub.motivo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => setModalSub({ ...sub, isEditing: true })}
+                              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                              title="Editar este cambio"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSub(sub.id)}
+                              className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                              title="Eliminar este cambio"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Bajas y Faltas al Partido Card */}
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-xl backdrop-blur-md space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-850 pb-2">
@@ -2020,99 +2518,54 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                       return (
                         <div
                           key={jug.id}
-                          className="flex items-center justify-between bg-slate-950/40 border border-slate-850/60 rounded-2xl p-2.5 transition-all hover:border-slate-700/50"
+                          onClick={() => setPlayerActionModal(jug)}
+                          className="flex items-center justify-between bg-slate-955 hover:bg-slate-900 border border-slate-850 hover:border-camarma-blue/50 rounded-2xl p-3 transition-all cursor-pointer group active:scale-[0.99] shadow-sm select-none"
+                          title={`Pulsa para gestionar la convocatoria de ${jug.nombre}`}
                         >
-                          <div
-                            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
-                            onClick={() => {
-                              setAbsenceReasonInput(motivo || (jug.lesionado ? "Lesión" : ""));
-                              setAbsenceModal({ player: jug, mode: motivo ? 'edit' : 'add' });
-                            }}
-                          >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             {jug.fotoUrl ? (
-                              <img src={jug.fotoUrl} alt={jug.nombre} className="w-8 h-8 rounded-full object-cover border border-slate-850 shrink-0" />
+                              <img
+                                src={jug.fotoUrl}
+                                alt={jug.nombre}
+                                className="w-9 h-9 rounded-full object-cover border border-slate-800 shrink-0 group-hover:border-camarma-blue/50 transition-colors"
+                              />
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-750 shrink-0">
-                                <User className="w-4 h-4 text-slate-500" />
+                              <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center border border-slate-750 shrink-0">
+                                <User className="w-4.5 h-4.5 text-slate-400" />
                               </div>
                             )}
-                            <div className="min-w-0 flex-1">
-                              <span className="text-xs font-bold text-slate-200 block truncate leading-tight">
-                                {jug.nombre}
-                              </span>
-                              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-white block truncate leading-tight group-hover:text-camarma-blue-light transition-colors">
+                                  {jug.nombre}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-semibold shrink-0">
+                                  ({jug.posicion || (jug.isPortero ? "POR" : "JUG")})
+                                </span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                                 {isFalta ? (
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none ${
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border leading-none flex items-center gap-1 ${
                                     injustificada
-                                      ? "bg-red-950/40 border-red-900/40 text-red-400"
-                                      : "bg-amber-950/40 border-amber-900/40 text-amber-400"
+                                      ? "bg-red-950/50 border-red-900/50 text-red-400"
+                                      : "bg-amber-950/50 border-amber-900/50 text-amber-300"
                                   }`}>
-                                    {motivo ? `⚠️ ${motivo}` : "❌ Sin motivo - Toca"}
+                                    {injustificada ? "❌ Falta Injustificada" : `⚠️ ${motivo}`}
                                   </span>
                                 ) : (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none bg-emerald-950/40 border-emerald-900/40 text-emerald-400">
-                                    ✔️ Asiste (Sin minutos)
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-md border leading-none bg-emerald-950/50 border-emerald-900/50 text-emerald-400 flex items-center gap-1">
+                                    ✔️ Sí asiste (Sin minutos)
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            {/* Selector de Asistencia: Dos botones claros */}
-                            <div className="flex items-center p-0.5 bg-slate-900 border border-slate-800 rounded-xl">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  // Marcar Sí asiste (quitar falta)
-                                  setMatchFaltas(prev => prev.filter(id => id !== jug.id));
-                                  setMatchAusencias(prev => {
-                                    const n = { ...prev };
-                                    delete n[jug.id];
-                                    return n;
-                                  });
-                                }}
-                                className={`text-[9px] font-black px-2 py-1 rounded-lg transition-all cursor-pointer select-none ${
-                                  !isFalta
-                                    ? "bg-emerald-600 text-white shadow-sm"
-                                    : "text-slate-500 hover:text-slate-300"
-                                }`}
-                                title="Marcar que Sí Asiste al partido"
-                              >
-                                ✔️ Sí asiste
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  // Marcar No asiste (falta y pedir motivo)
-                                  if (!isFalta) {
-                                    setMatchFaltas(prev => prev.includes(jug.id) ? prev : [...prev, jug.id]);
-                                    setAbsenceReasonInput(jug.lesionado ? "Lesión" : "Falta injustificada");
-                                    setAbsenceModal({ player: jug, mode: 'add' });
-                                  } else {
-                                    setAbsenceReasonInput(motivo || (jug.lesionado ? "Lesión" : "Falta injustificada"));
-                                    setAbsenceModal({ player: jug, mode: 'edit' });
-                                  }
-                                }}
-                                className={`text-[9px] font-black px-2 py-1 rounded-lg transition-all cursor-pointer select-none ${
-                                  isFalta
-                                    ? "bg-red-600 text-white shadow-sm"
-                                    : "text-slate-500 hover:text-slate-300"
-                                }`}
-                                title="Marcar que No Asiste (Falta al partido)"
-                              >
-                                ❌ No asiste
-                              </button>
-                            </div>
-
-                            <button
-                              onClick={() => tryAddSuplente(jug.id)}
-                              className="bg-camarma-blue/15 hover:bg-camarma-blue border border-camarma-blue/30 hover:border-camarma-blue text-camarma-blue-light hover:text-white text-[10px] font-bold px-2 py-1.5 rounded-xl transition-all cursor-pointer select-none shrink-0"
-                              title="Convocar al Banquillo (Se marcará automáticamente como 'Sí asiste')"
-                            >
-                              + Banquillo
-                            </button>
+                          <div className="flex items-center gap-1 shrink-0 text-slate-500 group-hover:text-camarma-gold transition-colors ml-2">
+                            <span className="text-[10px] font-extrabold hidden sm:inline uppercase tracking-wider">
+                              Gestionar
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-camarma-gold group-hover:translate-x-0.5 transition-all" />
                           </div>
                         </div>
                       );
@@ -2279,7 +2732,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 {/* Crónica del partido */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    ✍️ Crónica / Resumen Táctico del Míster
+                    ✍️ Crónica del Partido
                   </label>
                   <textarea
                     value={cronica}
@@ -2540,6 +2993,11 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           stats={statsJugadores[jugadorIdModal] || {}}
           jugadoresPlantilla={jugadores.filter(j => j.id !== jugadorIdModal)}
           motivoAusenciaInicial={matchAusencias[jugadorIdModal] || ""}
+          sustituciones={sustituciones}
+          titularesIds={Object.values(asignaciones).filter(Boolean)}
+          suplentesIds={suplentes}
+          onOpenSubModal={(subData) => setModalSub(subData)}
+          onDeleteSub={handleDeleteSub}
           onSave={(newStats, motivo) => guardarStats(jugadorIdModal, newStats, motivo)}
           onClose={() => setModalSlot(null)}
           onRemove={() => {
@@ -2556,6 +3014,176 @@ export default function ActaPartido({ match, jugadores, onClose }) {
             setModalSlot(null);
           }}
         />
+      )}
+
+      {/* Modal de Registro / Edición de Sustitución (Cambios Volantes / Rotativos) */}
+      {modalSub && (
+        <ModalSubstitucion
+          sub={modalSub}
+          jugadores={jugadores}
+          titularesIds={Object.values(asignaciones).filter(Boolean)}
+          suplentesIds={suplentes}
+          sustitucionesExistentes={sustituciones}
+          onSave={handleSaveSub}
+          onClose={() => setModalSub(null)}
+        />
+      )}
+
+      {/* Modal de Selección de Acción para Jugador en Bajas */}
+      {playerActionModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm sm:max-w-md shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 font-sans">
+            
+            {/* Cabecera del jugador */}
+            <div className="p-5 border-b border-slate-800 bg-slate-955 flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                {playerActionModal.fotoUrl ? (
+                  <img
+                    src={playerActionModal.fotoUrl}
+                    alt={playerActionModal.nombre}
+                    className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-700 shadow-md shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center border-2 border-slate-700 shrink-0">
+                    <User className="w-6 h-6 text-slate-400" />
+                  </div>
+                )}
+                <div className="min-w-0 text-left">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Acción de Convocatoria
+                  </span>
+                  <h4 className="text-base font-black text-white leading-tight truncate">
+                    {playerActionModal.nombre}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-camarma-gold font-bold">
+                      {playerActionModal.posicion || (playerActionModal.isPortero ? "Portero" : "Jugador")}
+                    </span>
+                    {playerActionModal.lesionado && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-950/60 border border-red-900/60 text-red-400">
+                        🩹 Lesionado
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPlayerActionModal(null)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Opciones disponibles */}
+            <div className="p-5 space-y-3 text-left">
+              <p className="text-xs text-slate-400 font-medium">
+                ¿Qué acción quieres realizar con <strong>{playerActionModal.nombre.split(" ")[0]}</strong>?
+              </p>
+
+              <div className="space-y-2.5">
+                {/* 1. Convocar al Banquillo */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    tryAddSuplente(playerActionModal.id);
+                    setPlayerActionModal(null);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 bg-camarma-blue/15 hover:bg-camarma-blue/25 border border-camarma-blue/35 hover:border-camarma-blue/60 rounded-2xl text-left transition-all cursor-pointer group active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-camarma-blue/20 text-camarma-blue-light flex items-center justify-center shrink-0 font-black text-xl group-hover:scale-105 transition-transform">
+                      +
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-white block">
+                        Convocar al Banquillo
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        Añadir a suplentes y marcar que sí asiste al partido.
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-camarma-blue-light shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* 2. Marcar como No Asiste (Baja / Falta / Justificación) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const jug = playerActionModal;
+                    const motivo = matchAusencias[jug.id] || (jug.lesionado ? "Lesión" : "");
+                    setAbsenceReasonInput(motivo || (jug.lesionado ? "Lesión" : "Falta injustificada"));
+                    setAbsenceModal({ player: jug, mode: motivo ? 'edit' : 'add' });
+                    setPlayerActionModal(null);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 bg-red-950/20 hover:bg-red-950/35 border border-red-900/35 hover:border-red-700/60 rounded-2xl text-left transition-all cursor-pointer group active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-red-950/40 text-red-400 flex items-center justify-center shrink-0 font-black text-base group-hover:scale-105 transition-transform">
+                      ❌
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-red-300 block">
+                        Marcar como "No Asiste" (Baja / Falta)
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        Indicar o editar justificación (lesión, trabajo, viaje, etc.).
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-red-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* 3. Marcar como Sí Asiste (Disponible sin convocar) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = playerActionModal.id;
+                    setMatchFaltas(prev => prev.filter(fId => fId !== id));
+                    setMatchAusencias(prev => {
+                      const n = { ...prev };
+                      delete n[id];
+                      return n;
+                    });
+                    showToast(`${playerActionModal.nombre} marcado como "Sí asiste" (disponible).`, "success");
+                    setPlayerActionModal(null);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 bg-emerald-950/20 hover:bg-emerald-950/35 border border-emerald-900/35 hover:border-emerald-700/60 rounded-2xl text-left transition-all cursor-pointer group active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 font-black text-base group-hover:scale-105 transition-transform">
+                      ✔️
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-emerald-300 block">
+                        Marcar como "Sí Asiste"
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        Asiste al encuentro (disponible sin minutos).
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-emerald-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+            </div>
+
+            {/* Pie */}
+            <div className="p-4 bg-slate-955 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPlayerActionModal(null)}
+                className="px-5 py-2.5 bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
 
       {/* Modal de Motivo de Ausencia al Partido */}
