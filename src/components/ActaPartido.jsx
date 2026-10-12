@@ -349,6 +349,7 @@ function ModalJugadorActa({
   const [sustituido, setSustituido] = useState(stats.sustituido ?? false);
   const [minCambio, setMinCambio] = useState(stats.minCambio ?? "");
   const [sustituidoPorId, setSustituidoPorId] = useState(stats.sustituidoPorId ?? "");
+  const [comentarios, setComentarios] = useState(stats.comentarios ?? stats.comentario ?? stats.observaciones ?? "");
 
   // Tramos calculados y sustituciones específicas de este jugador
   const tramosInfo = useMemo(() => {
@@ -423,6 +424,7 @@ function ModalJugadorActa({
       sustituido: !convocado ? false : sustituido,
       minCambio: minCambioInt,
       sustituidoPorId: sustituido ? sustituidoPorId : null,
+      comentarios: comentarios.trim(),
       golesDetalle: !convocado ? [] : golesDetalle,
       asistenciasDetalle: !convocado ? [] : asistenciasDetalle,
       amarillasDetalle: !convocado ? [] : amarillasDetalle,
@@ -1117,6 +1119,26 @@ function ModalJugadorActa({
                 })}
               </div>
             )}
+          </div>
+
+          {/* Comentarios Personales / Notas del Jugador en este Partido */}
+          <div className="space-y-2 border-t border-slate-850/60 pt-4">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-camarma-gold" /> Comentarios / Notas del Partido
+              </label>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Opcional</span>
+            </div>
+            <textarea
+              value={comentarios}
+              onChange={(e) => setComentarios(e.target.value)}
+              placeholder={`Notas técnicas, rendimiento o evaluación individual de ${jugador?.nombre || "este jugador"} en el partido (se incluirá en su historial PDF)...`}
+              rows={3}
+              className="w-full bg-slate-950 border border-slate-800 focus:border-camarma-gold/60 text-white rounded-2xl p-3 text-xs outline-none resize-none leading-relaxed transition-all font-medium placeholder:text-slate-600"
+            />
+            <p className="text-[10px] text-slate-500 italic">
+              💡 Estos comentarios se guardarán en el acta y se añadirán automáticamente al historial deportivo en PDF de este jugador.
+            </p>
           </div>
 
         </div>
@@ -1914,6 +1936,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         convocado: stats.convocado ? "Sí" : "No",
         tipo: esTitular ? "Titular" : "Suplente",
         isPortero: p ? (p.isPortero || p.posicion === "Portero") : false,
+        comentarios: (stats.comentarios || stats.comentario || stats.observaciones || "").trim(),
         golesDetalle: stats.golesDetalle || [],
         asistenciasDetalle: stats.asistenciasDetalle || [],
         amarillasDetalle: stats.amarillasDetalle || [],
@@ -1964,6 +1987,13 @@ export default function ActaPartido({ match, jugadores, onClose }) {
             : '-'}
         </td>
       </tr>
+      ${r.comentarios ? `
+        <tr style="background:#f8fafc;">
+          <td colspan="8" style="padding: 6px 12px; font-size: 11px; color: #334155; font-style: italic; border-left: 3px solid #1e3a8a; border-bottom: 1px solid #cbd5e1;">
+            <strong style="color: #1e3a8a; font-style: normal; font-weight: 700;">💬 Observación individual:</strong> "${r.comentarios}"
+          </td>
+        </tr>
+      ` : ''}
     `).join("");
 
     const mvpPlayer = jugadores.find(j => j.id === mvpJugadorId);

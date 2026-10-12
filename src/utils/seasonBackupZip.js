@@ -160,6 +160,8 @@ export function getPlayerReportHTML({ player, partidos, entrenamientos, temporad
       ? `${match.golesGorditos ?? match.golesCamarma ?? 0} - ${match.golesRival}`
       : `${match.golesRival} - ${match.golesGorditos ?? match.golesCamarma ?? 0}`;
 
+    const comentarioTexto = (s.comentarios || s.comentario || s.observaciones || "").trim();
+
     return `
       <tr>
         <td><strong>${formattedDate}</strong></td>
@@ -171,6 +173,13 @@ export function getPlayerReportHTML({ player, partidos, entrenamientos, temporad
         <td style="text-align:center;">${s.asistencias > 0 ? `👟 ${s.asistencias}` : "-"}</td>
         <td style="text-align:center;">${s.amarillas > 0 ? "🟨" : ""} ${s.rojas > 0 ? "🟥" : ""}</td>
       </tr>
+      ${comentarioTexto ? `
+        <tr style="background:#f8fafc;">
+          <td colspan="8" style="padding:5px 10px; font-size:10.5px; color:#334155; font-style:italic; border-left:3px solid #1e3a8a; border-bottom:1px solid #e2e8f0;">
+            <strong style="color:#1e3a8a; font-style:normal; font-weight:bold;">💬 Comentario del Partido:</strong> "${comentarioTexto}"
+          </td>
+        </tr>
+      ` : ''}
     `;
   }).join("");
 

@@ -640,6 +640,8 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         tarjetasStr += (tarjetasStr ? ' ' : '') + `🟥 ${mins}`.trim();
       }
 
+      const comentarioTexto = (s.comentarios || s.comentario || s.observaciones || "").trim();
+
       return `
         <tr>
           <td><strong>vs ${match.rival}</strong></td>
@@ -651,6 +653,13 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
           <td class="text-center text-blue-600 font-bold">${asistenciasStr}</td>
           <td class="text-center">${tarjetasStr || "-"}</td>
         </tr>
+        ${comentarioTexto ? `
+          <tr style="background-color: #f8fafc;">
+            <td colspan="8" style="padding: 7px 14px; font-size: 11px; color: #334155; font-style: italic; border-left: 3px solid #1e3a8a; border-bottom: 1px solid #cbd5e1;">
+              <strong style="color: #1e3a8a; font-style: normal; font-weight: 700;">💬 Comentario / Observación del Partido:</strong> "${comentarioTexto}"
+            </td>
+          </tr>
+        ` : ''}
       `;
     }).join("");
 
