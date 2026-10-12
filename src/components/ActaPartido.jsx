@@ -990,10 +990,10 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       setActaPdfSize(metadata.actaPdfSize);
       setActaPdfFecha(metadata.actaPdfFecha);
       setActaPdfUrl(null);
-      showToast("Acta en PDF guardada con éxito en la base de datos.", "success");
+      showToast("Documento / Informe en PDF guardado con éxito.", "success");
     } catch (err) {
       console.error("Error guardando PDF en Firestore:", err);
-      showToast("Error al guardar el PDF en la base de datos.", "error");
+      showToast("Error al guardar el archivo en la base de datos.", "error");
     } finally {
       setPdfUploading(false);
     }
@@ -1009,7 +1009,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
     // Si ya tenemos el Blob en memoria:
     if (cachedBlob) {
-      openOrDownloadPdf(cachedBlob, actaPdfNombre || "Acta_Partido.pdf");
+      openOrDownloadPdf(cachedBlob, actaPdfNombre || "Documento_Partido.pdf");
       return;
     }
 
@@ -1018,10 +1018,10 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     try {
       const blob = await loadMatchPdfBlob(match.id);
       setCachedBlob(blob);
-      openOrDownloadPdf(blob, actaPdfNombre || "Acta_Partido.pdf");
+      openOrDownloadPdf(blob, actaPdfNombre || "Documento_Partido.pdf");
     } catch (err) {
       console.error("Error cargando PDF desde Firestore:", err);
-      showToast("No se pudo cargar el PDF desde la base de datos.", "error");
+      showToast("No se pudo cargar el archivo desde la base de datos.", "error");
     } finally {
       setPdfLoadingBlob(false);
     }
@@ -1029,7 +1029,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
   // ── Eliminar PDF de Firestore ──────────────
   const handleRemovePdf = async () => {
-    if (!window.confirm("¿Seguro que deseas eliminar el acta en PDF de este partido?")) return;
+    if (!window.confirm("¿Seguro que deseas eliminar este documento/informe en PDF del partido?")) return;
 
     setPdfUploading(true);
     try {
@@ -1041,10 +1041,10 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       setActaPdfUrl(null);
       setCachedBlob(null);
       if (pdfInputRef.current) pdfInputRef.current.value = "";
-      showToast("Acta en PDF eliminada de la base de datos.", "success");
+      showToast("Documento en PDF eliminado del partido.", "success");
     } catch (err) {
       console.error("Error al eliminar PDF:", err);
-      showToast("Error al eliminar el acta.", "error");
+      showToast("Error al eliminar el documento.", "error");
     } finally {
       setPdfUploading(false);
     }
@@ -1843,14 +1843,14 @@ export default function ActaPartido({ match, jugadores, onClose }) {
               onClick={handleViewPdf}
               disabled={pdfLoadingBlob}
               className="flex items-center gap-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-200 border border-red-500/40 font-black text-[10px] sm:text-xs py-2.5 px-3 sm:px-4 rounded-xl transition-all cursor-pointer active:scale-95 select-none uppercase tracking-wider shrink-0 shadow-sm disabled:opacity-50"
-              title="Abrir o descargar acta oficial en PDF importada"
+              title="Abrir o descargar informe / análisis del partido en PDF"
             >
               {pdfLoadingBlob ? (
                 <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400 animate-spin" />
               ) : (
                 <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
               )}
-              <span className="hidden sm:inline">Acta Oficial</span> (PDF)
+              <span className="hidden sm:inline">Informe / Datos</span> (PDF)
             </button>
           )}
           <button
@@ -2291,12 +2291,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 </div>
               </div>
 
-              {/* Acta Oficial del Partido (PDF Importado en Firestore) */}
+              {/* Informe / Análisis / Datos del Partido (PDF Importado en Firestore) */}
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-xl backdrop-blur-md space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-850 pb-2">
                   <h3 className="text-xs font-black uppercase tracking-wider text-camarma-gold flex items-center gap-2">
                     <FileText className="w-4 h-4 text-camarma-gold" />
-                    Acta Oficial Arbitral (PDF Opcional)
+                    Informe / Análisis / Datos del Partido (PDF Opcional)
                   </h3>
                   {(hasPdfActa || actaPdfUrl) && (
                     <span className="text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
@@ -2306,7 +2306,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 </div>
 
                 <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                  Puedes importar el acta oficial en PDF directamente desde tu ordenador. Se guarda en la base de datos (Cloud Firestore) de forma ligera y segura.
+                  Puedes adjuntar informes tácticos, actas, estadísticas o análisis del partido elaborados por el cuerpo técnico o dirección deportiva.
                 </p>
 
                 {/* Input de archivo oculto */}
@@ -2327,7 +2327,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Guardando acta en la base de datos...
+                        Guardando documento en la base de datos...
                       </span>
                       <span className="font-mono text-camarma-gold">{pdfUploadProgress}%</span>
                     </div>
@@ -2348,8 +2348,8 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                         <FileText className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-white truncate max-w-xs sm:max-w-sm" title={actaPdfNombre || "Acta_Oficial.pdf"}>
-                          {actaPdfNombre || "Acta_Oficial.pdf"}
+                        <p className="text-sm font-bold text-white truncate max-w-xs sm:max-w-sm" title={actaPdfNombre || "Documento_Partido.pdf"}>
+                          {actaPdfNombre || "Documento_Partido.pdf"}
                         </p>
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                           {actaPdfSize && (
@@ -2410,10 +2410,10 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-white group-hover:text-camarma-blue-light transition-colors">
-                        Haz clic para seleccionar el acta en PDF de tu PC
+                        Haz clic para seleccionar el documento, informe o análisis en PDF
                       </p>
                       <p className="text-[10px] text-slate-500 mt-0.5">
-                        Formato PDF (almacenamiento en base de datos)
+                        Formato PDF (análisis táctico, datos, scouting o acta)
                       </p>
                     </div>
                   </div>

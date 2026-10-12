@@ -3068,17 +3068,17 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                                   }
                                   try {
                                     const blob = await loadMatchPdfBlob(match.id);
-                                    openOrDownloadPdf(blob, match.actaPdfNombre || "Acta_Partido.pdf");
+                                    openOrDownloadPdf(blob, match.actaPdfNombre || "Documento_Partido.pdf");
                                   } catch (err) {
                                     console.error(err);
                                     showToast("No se pudo cargar el PDF de la base de datos.", "error");
                                   }
                                 }}
                                 className="flex items-center gap-1.5 bg-red-950/30 hover:bg-red-900/45 border border-red-900/40 hover:border-red-700/60 text-red-300 font-extrabold text-[11px] py-2.5 px-3 rounded-xl cursor-pointer transition-all active:scale-95 uppercase tracking-wider shadow-sm"
-                                title={`Ver PDF Oficial: ${match.actaPdfNombre || 'Acta Oficial'}`}
+                                title={`Ver Informe / Análisis: ${match.actaPdfNombre || 'Informe del Partido'}`}
                               >
                                 <FileText className="w-3.5 h-3.5 text-red-400" />
-                                <span className="hidden sm:inline">Acta</span> PDF
+                                <span className="hidden sm:inline">Informe</span> PDF
                               </button>
                             )}
 

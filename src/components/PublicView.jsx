@@ -1679,23 +1679,23 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                     setLoadingPublicPdf(true);
                     try {
                       const blob = await loadMatchPdfBlob(selectedMatchDetails.id);
-                      openOrDownloadPdf(blob, selectedMatchDetails.actaPdfNombre || "Acta_Partido.pdf");
+                      openOrDownloadPdf(blob, selectedMatchDetails.actaPdfNombre || "Documento_Partido.pdf");
                     } catch (err) {
                       console.error("Error cargando PDF:", err);
-                      alert("No se pudo cargar el PDF del acta.");
+                      alert("No se pudo cargar el informe/documento del partido.");
                     } finally {
                       setLoadingPublicPdf(false);
                     }
                   }}
                   className="bg-red-950/40 hover:bg-red-900/60 text-red-200 hover:text-white border border-red-500/40 font-bold text-xs py-2.5 px-5 rounded-xl transition-all cursor-pointer active:scale-95 select-none uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                  title="Abrir acta oficial en PDF"
+                  title="Abrir informe o análisis del partido en PDF"
                 >
                   {loadingPublicPdf ? (
                     <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
                   ) : (
                     <FileText className="w-4 h-4 text-red-400" />
                   )}
-                  {loadingPublicPdf ? "Cargando Acta..." : "Ver Acta Oficial (PDF)"}
+                  {loadingPublicPdf ? "Cargando Informe..." : "Ver Informe / Análisis (PDF)"}
                 </button>
               )}
               {isAdmin && (
