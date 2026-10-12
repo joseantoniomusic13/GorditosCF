@@ -15,5 +15,12 @@ service firebase.storage {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Reglas para las actas oficiales de los partidos (PDFs)
+    match /actas_partidos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
+

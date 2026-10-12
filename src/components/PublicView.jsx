@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
-import { Shield, Calendar, Award, LogIn, Trophy, Clock, Heart, AlertCircle, ClipboardList, User, Activity, TrendingUp, X, ArrowLeftRight, MapPin } from "lucide-react";
+import { Shield, Calendar, Award, LogIn, Trophy, Clock, Heart, AlertCircle, ClipboardList, User, Activity, TrendingUp, X, ArrowLeftRight, MapPin, FileText, ExternalLink, Loader2 } from "lucide-react";
+import { loadMatchPdfBlob, openOrDownloadPdf } from "../utils/matchPdfFirestore";
 
 const calcularEdad = (fechaNac) => {
   if (!fechaNac) return "N/A";
@@ -92,6 +93,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
   const [selectedTrainingDetails, setSelectedTrainingDetails] = useState(null);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [temporadaConfig, setTemporadaConfig] = useState(null); // { nombre, fechaInicio }
+  const [loadingPublicPdf, setLoadingPublicPdf] = useState(false);
 
   // Helpers del calendario (solo lectura)
   const getDaysInMonth = (year, month) => {
@@ -1666,6 +1668,36 @@ export default function PublicView({ onAdminClick, isAdmin }) {
 
             {/* Pie del modal */}
             <div className="bg-slate-955/40 p-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-center gap-3">
+              {(selectedMatchDetails.hasPdfActa || selectedMatchDetails.actaPdfUrl) && (
+                <button
+                  disabled={loadingPublicPdf}
+                  onClick={async () => {
+                    if (selectedMatchDetails.actaPdfUrl) {
+                      window.open(selectedMatchDetails.actaPdfUrl, "_blank");
+                      return;
+                    }
+                    setLoadingPublicPdf(true);
+                    try {
+                      const blob = await loadMatchPdfBlob(selectedMatchDetails.id);
+                      openOrDownloadPdf(blob, selectedMatchDetails.actaPdfNombre || "Acta_Partido.pdf");
+                    } catch (err) {
+                      console.error("Error cargando PDF:", err);
+                      alert("No se pudo cargar el PDF del acta.");
+                    } finally {
+                      setLoadingPublicPdf(false);
+                    }
+                  }}
+                  className="bg-red-950/40 hover:bg-red-900/60 text-red-200 hover:text-white border border-red-500/40 font-bold text-xs py-2.5 px-5 rounded-xl transition-all cursor-pointer active:scale-95 select-none uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                  title="Abrir acta oficial en PDF"
+                >
+                  {loadingPublicPdf ? (
+                    <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-red-400" />
+                  )}
+                  {loadingPublicPdf ? "Cargando Acta..." : "Ver Acta Oficial (PDF)"}
+                </button>
+              )}
               {isAdmin && (
                 <button
                   onClick={() => exportMatchToPDF(selectedMatchDetails)}

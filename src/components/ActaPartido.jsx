@@ -1,8 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { db } from "../firebase";
 import { doc, updateDoc, increment } from "firebase/firestore";
-import { X, Check, ChevronDown, User, Shield, ArrowLeftRight, ClipboardList, Award, Activity, UserX } from "lucide-react";
+import { X, Check, ChevronDown, User, Shield, ArrowLeftRight, ClipboardList, Award, Activity, UserX, FileText, Upload, Trash2, ExternalLink, Download, Loader2 } from "lucide-react";
 import { LOGO_BASE64 } from "../logoBase64";
+import {
+  saveMatchPdfToFirestore,
+  loadMatchPdfBlob,
+  deleteMatchPdfFromFirestore,
+  openOrDownloadPdf
+} from "../utils/matchPdfFirestore";
 
 // ─────────────────────────────────────────────
 // FORMACIONES DISPONIBLES
@@ -936,9 +942,112 @@ export default function ActaPartido({ match, jugadores, onClose }) {
   const [pendingDischarge, setPendingDischarge] = useState(null);
   const [toast, setToast] = useState(null); // { message, type }
 
+  // ── Estado para el Acta Oficial en PDF (Almacenada en Firestore) ──────────────
+  const [hasPdfActa, setHasPdfActa] = useState(Boolean(match.hasPdfActa || match.actaPdfUrl));
+  const [actaPdfNombre, setActaPdfNombre] = useState(match.actaPdfNombre ?? "");
+  const [actaPdfSize, setActaPdfSize] = useState(match.actaPdfSize ?? null);
+  const [actaPdfFecha, setActaPdfFecha] = useState(match.actaPdfFecha ?? null);
+  const [actaPdfUrl, setActaPdfUrl] = useState(match.actaPdfUrl ?? null);
+  const [cachedBlob, setCachedBlob] = useState(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfUploadProgress, setPdfUploadProgress] = useState(0);
+  const [pdfLoadingBlob, setPdfLoadingBlob] = useState(false);
+  const pdfInputRef = useRef(null);
+
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  // ── Subir y fragmentar PDF directamente en Firestore ──────────────
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      showToast("Por favor, selecciona un archivo en formato PDF.", "error");
+      return;
+    }
+
+    // Límite de 15 MB
+    if (file.size > 15 * 1024 * 1024) {
+      showToast("El archivo es demasiado grande (máximo 15 MB).", "error");
+      return;
+    }
+
+    setPdfUploading(true);
+    setPdfUploadProgress(0);
+
+    try {
+      const { metadata } = await saveMatchPdfToFirestore(match.id, file, (progress) => {
+        setPdfUploadProgress(progress);
+      });
+
+      // Crear y cachear el Blob local para apertura inmediata
+      setCachedBlob(file);
+      setHasPdfActa(true);
+      setActaPdfNombre(metadata.actaPdfNombre);
+      setActaPdfSize(metadata.actaPdfSize);
+      setActaPdfFecha(metadata.actaPdfFecha);
+      setActaPdfUrl(null);
+      showToast("Acta en PDF guardada con éxito en la base de datos.", "success");
+    } catch (err) {
+      console.error("Error guardando PDF en Firestore:", err);
+      showToast("Error al guardar el PDF en la base de datos.", "error");
+    } finally {
+      setPdfUploading(false);
+    }
+  };
+
+  // ── Ver / Descargar PDF desde Firestore ──────────────
+  const handleViewPdf = async () => {
+    // Si tiene una URL externa directa:
+    if (actaPdfUrl) {
+      window.open(actaPdfUrl, "_blank");
+      return;
+    }
+
+    // Si ya tenemos el Blob en memoria:
+    if (cachedBlob) {
+      openOrDownloadPdf(cachedBlob, actaPdfNombre || "Acta_Partido.pdf");
+      return;
+    }
+
+    // Si hay que descargarlo de la base de datos (Firestore):
+    setPdfLoadingBlob(true);
+    try {
+      const blob = await loadMatchPdfBlob(match.id);
+      setCachedBlob(blob);
+      openOrDownloadPdf(blob, actaPdfNombre || "Acta_Partido.pdf");
+    } catch (err) {
+      console.error("Error cargando PDF desde Firestore:", err);
+      showToast("No se pudo cargar el PDF desde la base de datos.", "error");
+    } finally {
+      setPdfLoadingBlob(false);
+    }
+  };
+
+  // ── Eliminar PDF de Firestore ──────────────
+  const handleRemovePdf = async () => {
+    if (!window.confirm("¿Seguro que deseas eliminar el acta en PDF de este partido?")) return;
+
+    setPdfUploading(true);
+    try {
+      await deleteMatchPdfFromFirestore(match.id);
+      setHasPdfActa(false);
+      setActaPdfNombre("");
+      setActaPdfSize(null);
+      setActaPdfFecha(null);
+      setActaPdfUrl(null);
+      setCachedBlob(null);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+      showToast("Acta en PDF eliminada de la base de datos.", "success");
+    } catch (err) {
+      console.error("Error al eliminar PDF:", err);
+      showToast("Error al eliminar el acta.", "error");
+    } finally {
+      setPdfUploading(false);
+    }
   };
 
   // ── Autoguardado con debounce ────────────────
@@ -1352,7 +1461,11 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         golesCamarma,
         golesGorditos: golesCamarma,
         golesRival,
-        jugado: true
+        hasPdfActa: Boolean(hasPdfActa),
+        actaPdfNombre: actaPdfNombre || null,
+        actaPdfSize: actaPdfSize || null,
+        actaPdfFecha: actaPdfFecha || null,
+        actaPdfUrl: actaPdfUrl || null
       });
 
       // Actualizar baseline para futuros diffs
@@ -1725,6 +1838,21 @@ export default function ActaPartido({ match, jugadores, onClose }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {(hasPdfActa || actaPdfUrl) && (
+            <button
+              onClick={handleViewPdf}
+              disabled={pdfLoadingBlob}
+              className="flex items-center gap-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-200 border border-red-500/40 font-black text-[10px] sm:text-xs py-2.5 px-3 sm:px-4 rounded-xl transition-all cursor-pointer active:scale-95 select-none uppercase tracking-wider shrink-0 shadow-sm disabled:opacity-50"
+              title="Abrir o descargar acta oficial en PDF importada"
+            >
+              {pdfLoadingBlob ? (
+                <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400 animate-spin" />
+              ) : (
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
+              )}
+              <span className="hidden sm:inline">Acta Oficial</span> (PDF)
+            </button>
+          )}
           <button
             onClick={exportMatchToPDF}
             className="flex items-center gap-1.5 bg-gradient-to-r from-camarma-gold to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-950 font-black text-[10px] sm:text-xs py-2.5 px-4 rounded-xl transition-all cursor-pointer border border-slate-700/80 active:scale-95 select-none uppercase tracking-wider shrink-0"
@@ -2161,6 +2289,135 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                     className="w-full bg-slate-950 border border-slate-800 focus:border-camarma-blue text-white rounded-2xl p-4 text-sm outline-none resize-none leading-relaxed transition-all font-medium"
                   />
                 </div>
+              </div>
+
+              {/* Acta Oficial del Partido (PDF Importado en Firestore) */}
+              <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-xl backdrop-blur-md space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-camarma-gold flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-camarma-gold" />
+                    Acta Oficial Arbitral (PDF Opcional)
+                  </h3>
+                  {(hasPdfActa || actaPdfUrl) && (
+                    <span className="text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <Check className="w-3 h-3" /> PDF Adjuntado
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                  Puedes importar el acta oficial en PDF directamente desde tu ordenador. Se guarda en la base de datos (Cloud Firestore) de forma ligera y segura.
+                </p>
+
+                {/* Input de archivo oculto */}
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+
+                {/* Estado de subida con barra de progreso */}
+                {pdfUploading && (
+                  <div className="bg-slate-950/60 border border-camarma-blue/40 rounded-2xl p-4 flex flex-col gap-2.5 animate-in fade-in">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4 text-camarma-blue" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Guardando acta en la base de datos...
+                      </span>
+                      <span className="font-mono text-camarma-gold">{pdfUploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-camarma-blue to-camarma-gold h-full transition-all duration-200"
+                        style={{ width: `${pdfUploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Si ya hay un PDF subido */}
+                {!pdfUploading && (hasPdfActa || actaPdfUrl) && (
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-red-950/30 border border-red-500/30 flex items-center justify-center shrink-0 text-red-400">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate max-w-xs sm:max-w-sm" title={actaPdfNombre || "Acta_Oficial.pdf"}>
+                          {actaPdfNombre || "Acta_Oficial.pdf"}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                          {actaPdfSize && (
+                            <span>{(actaPdfSize / 1024).toFixed(0)} KB</span>
+                          )}
+                          {actaPdfSize && actaPdfFecha && <span>•</span>}
+                          {actaPdfFecha && (
+                            <span>Subido el {new Date(actaPdfFecha).toLocaleDateString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleViewPdf}
+                        disabled={pdfLoadingBlob}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all border border-slate-700 shadow-sm cursor-pointer disabled:opacity-50"
+                        title="Abrir o descargar PDF"
+                      >
+                        {pdfLoadingBlob ? (
+                          <Loader2 className="w-3.5 h-3.5 text-camarma-gold animate-spin" />
+                        ) : (
+                          <ExternalLink className="w-3.5 h-3.5 text-camarma-gold" />
+                        )}
+                        {pdfLoadingBlob ? "Cargando..." : "Ver PDF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => pdfInputRef.current?.click()}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-slate-750 cursor-pointer"
+                        title="Reemplazar archivo PDF"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-slate-400" />
+                        Cambiar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemovePdf}
+                        className="p-2 bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-red-300 rounded-xl transition-all border border-red-900/40 cursor-pointer"
+                        title="Eliminar PDF del partido"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Si no hay PDF y no se está subiendo */}
+                {!pdfUploading && !hasPdfActa && !actaPdfUrl && (
+                  <div
+                    onClick={() => pdfInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-800 hover:border-camarma-blue/60 bg-slate-950/40 hover:bg-slate-900/40 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 group flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-11 h-11 rounded-2xl bg-slate-850 group-hover:bg-camarma-blue/20 border border-slate-750 group-hover:border-camarma-blue/40 flex items-center justify-center transition-all">
+                      <Upload className="w-5 h-5 text-slate-400 group-hover:text-camarma-gold transition-colors" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white group-hover:text-camarma-blue-light transition-colors">
+                        Haz clic para seleccionar el acta en PDF de tu PC
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Formato PDF (almacenamiento en base de datos)
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Botón de Guardado y Confirmar */}

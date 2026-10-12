@@ -16,10 +16,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Reglas para la colección de partidos
+    // Reglas para la colección de partidos y sus subcolecciones (como pdf_acta)
     match /partidos/{partidoId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      match /{allSubcollections=**} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     // Reglas para la colección de entrenamientos

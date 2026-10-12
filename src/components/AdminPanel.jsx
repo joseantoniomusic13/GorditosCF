@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { db, auth } from "../firebase";
 import { signOut } from "firebase/auth";
+import { loadMatchPdfBlob, openOrDownloadPdf } from "../utils/matchPdfFirestore";
 import {
   collection,
   doc,
@@ -1714,6 +1715,18 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
             }
           }
 
+          // Borrar PDF adjunto en Firestore si existía
+          if (matchToDelete?.hasPdfActa) {
+            try {
+              const chunksSnap = await getDocs(collection(db, "partidos", matchId, "pdf_acta"));
+              for (const cDoc of chunksSnap.docs) {
+                await deleteDoc(cDoc.ref);
+              }
+            } catch (storageErr) {
+              console.warn("No se pudo eliminar los fragmentos del PDF en Firestore:", storageErr);
+            }
+          }
+
           // Borrar el documento del partido
           await deleteDoc(doc(db, "partidos", matchId));
           showToast("Partido eliminado correctamente.", "success");
@@ -3045,6 +3058,30 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                       {/* Botonera de acciones del partido */}
                       <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                         
+                            {/* Botón Ver PDF si existe */}
+                            {(match.hasPdfActa || match.actaPdfUrl) && (
+                              <button
+                                onClick={async () => {
+                                  if (match.actaPdfUrl) {
+                                    window.open(match.actaPdfUrl, "_blank");
+                                    return;
+                                  }
+                                  try {
+                                    const blob = await loadMatchPdfBlob(match.id);
+                                    openOrDownloadPdf(blob, match.actaPdfNombre || "Acta_Partido.pdf");
+                                  } catch (err) {
+                                    console.error(err);
+                                    showToast("No se pudo cargar el PDF de la base de datos.", "error");
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 bg-red-950/30 hover:bg-red-900/45 border border-red-900/40 hover:border-red-700/60 text-red-300 font-extrabold text-[11px] py-2.5 px-3 rounded-xl cursor-pointer transition-all active:scale-95 uppercase tracking-wider shadow-sm"
+                                title={`Ver PDF Oficial: ${match.actaPdfNombre || 'Acta Oficial'}`}
+                              >
+                                <FileText className="w-3.5 h-3.5 text-red-400" />
+                                <span className="hidden sm:inline">Acta</span> PDF
+                              </button>
+                            )}
+
                             {/* Botón Acta */}
                             <button
                               onClick={() => setActaMatch(match)}
