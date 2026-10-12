@@ -597,7 +597,12 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                         />
                         
                         <div className="min-w-0">
-                          <h4 className="font-bold text-white font-sans text-sm md:text-base leading-tight truncate">
+                          <h4 className="font-bold text-white font-sans text-sm md:text-base leading-tight truncate flex items-center gap-1.5">
+                            {player.dorsal && (
+                              <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                #{player.dorsal}
+                              </span>
+                            )}
                             {player.nombre}
                           </h4>
                           <p className="text-xs text-slate-500 mt-0.5 truncate">
@@ -670,7 +675,12 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                           className="w-12 h-12 rounded-full object-cover border border-slate-700 shrink-0"
                         />
                         <div className="min-w-0">
-                          <h4 className="font-bold text-white font-sans text-sm md:text-base leading-tight truncate">
+                          <h4 className="font-bold text-white font-sans text-sm md:text-base leading-tight truncate flex items-center gap-1.5">
+                            {player.dorsal && (
+                              <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                #{player.dorsal}
+                              </span>
+                            )}
                             {player.nombre}
                           </h4>
                           <p className="text-xs text-slate-500 mt-0.5 truncate">
@@ -737,7 +747,14 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                             </div>
                           )}
                           <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-white leading-tight truncate">{player.nombre}</h4>
+                            <h4 className="text-sm font-bold text-white leading-tight truncate flex items-center gap-1.5">
+                              {player.dorsal && (
+                                <span className="text-rose-400 font-mono font-black text-xs bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                  #{player.dorsal}
+                                </span>
+                              )}
+                              {player.nombre}
+                            </h4>
                             <div className="text-xs text-amber-500 mt-1 flex items-center gap-1 font-medium">
                               <span>🤕 Baja:</span>
                               <span className="truncate text-slate-350 font-normal">{player.tipoLesion || "Molestias físicas"}</span>
@@ -1468,6 +1485,11 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                     alt={player.nombre}
                                     className="w-10 h-10 rounded-full object-cover border-2 border-camarma-blue shadow-lg bg-slate-900"
                                   />
+                                  {player.dorsal && (
+                                    <span className="absolute -bottom-1 -right-1 bg-camarma-blue text-white font-mono font-black text-[8px] w-4 h-4 rounded-full flex items-center justify-center border border-slate-900 shadow">
+                                      {player.dorsal}
+                                    </span>
+                                  )}
                                   {isMvp && (
                                     <span className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] shadow-md animate-pulse">
                                       🌟
@@ -1481,8 +1503,11 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                               )}
                             </div>
                             {player && (
-                              <span className="mt-1 text-[9px] font-bold text-white bg-slate-950/80 border border-slate-800 px-1 py-0.5 rounded shadow max-w-[75px] truncate block whitespace-nowrap">
-                                {player.nombre.split(" ").slice(-1)[0]}
+                              <span
+                                className="mt-1 text-[9px] font-bold text-white bg-slate-950/80 border border-slate-800 px-1 py-0.5 rounded shadow max-w-[85px] sm:max-w-[105px] break-words whitespace-normal text-center block"
+                                title={player.dorsal ? `#${player.dorsal} ${player.nombre}` : player.nombre}
+                              >
+                                {player.dorsal ? `#${player.dorsal} ${player.nombre}` : player.nombre}
                               </span>
                             )}
                           </div>
@@ -1563,7 +1588,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                               <div key={pid} className="flex items-center justify-between text-xs py-1">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <img src={p.fotoUrl || "/placeholder-player.png"} className="w-6 h-6 rounded-full object-cover border border-slate-750 bg-slate-900 shrink-0" />
-                                  <span className="font-bold text-white truncate max-w-[150px]">{p.nombre}</span>
+                                  <span className="font-bold text-white truncate max-w-[150px]">{p.dorsal ? `#${p.dorsal} ` : ""}{p.nombre}</span>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 text-[10px]">
                                   <span className="text-slate-400 font-semibold">{stats?.minutos || 0}'</span>
@@ -1601,7 +1626,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                 <div key={pid} className="flex items-center justify-between text-xs py-1">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <img src={p.fotoUrl || "/placeholder-player.png"} className="w-6 h-6 rounded-full object-cover border border-slate-750 bg-slate-900 shrink-0" />
-                                    <span className="font-bold text-slate-300 truncate max-w-[150px]">{p.nombre}</span>
+                                    <span className="font-bold text-slate-300 truncate max-w-[150px]">{p.dorsal ? `#${p.dorsal} ` : ""}{p.nombre}</span>
                                     <span className="text-[9px] text-slate-500 font-medium">(suplente)</span>
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0 text-[10px]">
@@ -1647,9 +1672,9 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                       {sub.minuto}'
                                     </span>
                                     <div className="flex items-center gap-1.5 text-[11px] truncate">
-                                      <span className="text-red-400 font-bold truncate">🔴 {pSale?.nombre || "Jugador"}</span>
+                                      <span className="text-red-400 font-bold truncate">🔴 {pSale ? (pSale.dorsal ? `#${pSale.dorsal} ` : "") + pSale.nombre : "Jugador"}</span>
                                       <span className="text-slate-500 shrink-0">➡️</span>
-                                      <span className="text-emerald-400 font-bold truncate">🟢 {pEntra?.nombre || "Jugador"}</span>
+                                      <span className="text-emerald-400 font-bold truncate">🟢 {pEntra ? (pEntra.dorsal ? `#${pEntra.dorsal} ` : "") + pEntra.nombre : "Jugador"}</span>
                                       {esReingreso && (
                                         <span className="text-[9px] bg-blue-500/15 border border-blue-500/30 text-blue-300 font-extrabold px-1.5 py-0.2 rounded-md shrink-0">
                                           🔄 Reingreso
@@ -1687,7 +1712,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                   <div key={pid} className="flex items-center justify-between text-xs py-1 px-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
                                     <div className="flex items-center gap-2 min-w-0">
                                       <img src={p.fotoUrl || "/placeholder-player.png"} className="w-5 h-5 rounded-full object-cover border border-slate-750 bg-slate-900 shrink-0" />
-                                      <span className="font-semibold text-slate-300 truncate text-[11px]">{p.nombre}</span>
+                                      <span className="font-semibold text-slate-300 truncate text-[11px]">{p.dorsal ? `#${p.dorsal} ` : ""}{p.nombre}</span>
                                     </div>
                                     <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 truncate max-w-[140px]">
                                       {motivo || "Sin justificar"}

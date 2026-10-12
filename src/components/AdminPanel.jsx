@@ -922,8 +922,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               : `<div class="profile-placeholder">${player.nombre.charAt(0)}</div>`
             }
             <div class="profile-info">
-              <h2>${player.nombre}</h2>
+              <h2>${player.nombre} ${player.dorsal ? `(#${player.dorsal})` : ''}</h2>
               <div class="profile-details-grid">
+                <div class="detail-item">
+                  <span>Dorsal</span>
+                  <strong>${player.dorsal ? `#${player.dorsal}` : 'S/D'}</strong>
+                </div>
                 <div class="detail-item">
                   <span>Posición</span>
                   <strong>${player.posicion || (player.isPortero ? 'Portero' : 'Jugador')}</strong>
@@ -1235,6 +1239,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
       return {
         nombre: player.nombre,
+        dorsal: player.dorsal || "",
         posicion: player.posicion || (player.isPortero ? "Portero" : "Jugador"),
         edad: calcularEdad(player.fechaNacimiento),
         goles: player.isPortero ? player.golesContra : player.golesFavor,
@@ -1255,7 +1260,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
 
       return `
         <tr>
-          <td><strong>${r.nombre}</strong></td>
+          <td><strong>${r.dorsal ? `#${r.dorsal} ` : ""}${r.nombre}</strong></td>
           <td><span class="${badgeClass}">${r.posicion}</span></td>
           <td class="text-center">${r.edad}</td>
           <td class="text-center">${r.goles}</td>
@@ -2107,7 +2112,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                           <div key={j.id} className="flex items-center gap-2.5">
                             <span className="text-[10px] font-black text-slate-500 w-4">{i + 1}.</span>
                             <img src={j.fotoUrl || "/placeholder-player.png"} alt={j.nombre} className="w-6 h-6 rounded-full object-cover border border-slate-700" />
-                            <span className="text-xs font-bold text-slate-200 flex-1 truncate">{j.nombre}</span>
+                            <span className="text-xs font-bold text-slate-200 flex-1 truncate">{j.dorsal ? `#${j.dorsal} ` : ""}{j.nombre}</span>
                             <span className="text-sm font-black text-camarma-gold">{j.golesFavor || 0}</span>
                           </div>
                         ))
@@ -2125,7 +2130,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                           <div key={j.id} className="flex items-center gap-2.5">
                             <span className="text-[10px] font-black text-slate-500 w-4">{i + 1}.</span>
                             <img src={j.fotoUrl || "/placeholder-player.png"} alt={j.nombre} className="w-6 h-6 rounded-full object-cover border border-slate-700" />
-                            <span className="text-xs font-bold text-slate-200 flex-1 truncate">{j.nombre}</span>
+                            <span className="text-xs font-bold text-slate-200 flex-1 truncate">{j.dorsal ? `#${j.dorsal} ` : ""}{j.nombre}</span>
                             <span className="text-sm font-black text-camarma-blue">{j.asistencias || 0}</span>
                           </div>
                         ))
@@ -2143,7 +2148,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                           <div key={j.id} className="flex items-center gap-2.5">
                             <span className="text-[10px] font-black text-slate-500 w-4">{i + 1}.</span>
                             <img src={j.fotoUrl || "/placeholder-player.png"} alt={j.nombre} className="w-6 h-6 rounded-full object-cover border border-slate-700" />
-                            <span className="text-xs font-bold text-slate-200 flex-1 truncate">{j.nombre}</span>
+                            <span className="text-xs font-bold text-slate-200 flex-1 truncate">{j.dorsal ? `#${j.dorsal} ` : ""}{j.nombre}</span>
                             <span className="text-sm font-black text-slate-300">{j.minutosJugados || 0}'</span>
                           </div>
                         ))
@@ -2216,7 +2221,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                       {jugadores.filter(j => j.lesionado).map(j => (
                         <div key={j.id} className="flex items-center gap-2 bg-red-950/15 border border-red-900/25 rounded-xl px-3 py-1.5">
                           <img src={j.fotoUrl || "/placeholder-player.png"} alt="" className="w-5 h-5 rounded-full object-cover" />
-                          <span className="text-xs font-bold text-red-300 flex-1 truncate">{j.nombre}</span>
+                          <span className="text-xs font-bold text-red-300 flex-1 truncate">{j.dorsal ? `#${j.dorsal} ` : ""}{j.nombre}</span>
                           {j.tipoLesion && <span className="text-[9px] text-red-500 truncate max-w-[80px]">{j.tipoLesion}</span>}
                         </div>
                       ))}
@@ -2341,6 +2346,11 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                               alt={player.nombre}
                               className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-slate-800 shadow"
                             />
+                            {player.dorsal && (
+                              <span className="absolute -top-1 -left-1 bg-slate-900 text-camarma-gold font-mono font-black text-[9px] px-1 py-0.2 rounded border border-slate-700 shadow shrink-0">
+                                #{player.dorsal}
+                              </span>
+                            )}
                             {player.isPortero && (
                               <span className="absolute -bottom-1 -right-1 bg-camarma-gold text-slate-950 text-[9px] font-black uppercase px-1 rounded border border-slate-900">
                                 🧤
@@ -2351,6 +2361,11 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                           {/* Nombre, edad y badge de posición */}
                           <div className="min-w-0">
                             <h4 className="text-sm sm:text-base font-extrabold text-white leading-tight font-sans truncate flex items-center gap-1.5">
+                              {player.dorsal && (
+                                <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                  #{player.dorsal}
+                                </span>
+                              )}
                               {player.nombre}
                               {player.lesionado && (
                                 <span className="text-[10px] bg-red-950/50 text-red-400 border border-red-900/40 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 shrink-0">
@@ -3456,7 +3471,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                               >
                                 <div className="flex items-center gap-1.5 w-full">
                                   <span className="shrink-0">{isAbsent ? "❌" : "✔️"}</span>
-                                  <span className="truncate">{player.nombre}</span>
+                                  <span className="truncate">{player.dorsal ? `#${player.dorsal} ` : ""}{player.nombre}</span>
                                 </div>
                                 {isAbsent && reason && (
                                   <span className="text-[9px] text-red-400/70 font-normal truncate w-full pl-5">{reason}</span>
@@ -3866,7 +3881,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               <h4 className="font-black text-white text-sm leading-tight">
                 {absenceModal.mode === 'add' ? 'Marcar Ausencia' : 'Editar Ausencia'}
               </h4>
-              <span className="text-[10px] font-bold text-slate-400">{absenceModal.player.nombre}</span>
+              <span className="text-[10px] font-bold text-slate-400">{absenceModal.player.dorsal ? `#${absenceModal.player.dorsal} ` : ""}{absenceModal.player.nombre}</span>
             </div>
           </div>
 

@@ -43,6 +43,7 @@ const comprimirImagen = (file, maxWidth = 300, quality = 0.75) => {
 
 export default function AddPlayerForm({ onPlayerAdded, onClose }) {
   const [nombre, setNombre] = useState("");
+  const [dorsal, setDorsal] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
   const [posicion, setPosicion] = useState("Delantero");
   const [imageFile, setImageFile] = useState(null);
@@ -120,6 +121,7 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
       // 2. Guardar todo el documento en Firestore (sin Storage)
       const newPlayerData = {
         nombre: nombre.trim(),
+        dorsal: dorsal !== "" ? String(dorsal).trim() : "",
         fechaNacimiento: fechaNacimiento,
         posicion: posicion,
         isPortero: isPortero,
@@ -144,6 +146,7 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
 
       // Resetear campos
       setNombre("");
+      setDorsal("");
       setFechaNacimiento("");
       setPosicion("Delantero");
       setImageFile(null);
@@ -189,20 +192,37 @@ export default function AddPlayerForm({ onPlayerAdded, onClose }) {
           </div>
         )}
 
-        {/* Input de Nombre */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-            Nombre del Jugador
-          </label>
-          <input
-            type="text"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700/80 focus:border-camarma-blue focus:ring-1 focus:ring-camarma-blue text-white rounded-xl px-4 py-3 text-base outline-none placeholder:text-slate-500"
-            placeholder="Ej. Juan Pérez"
-            required
-            disabled={loading}
-          />
+        {/* Input de Nombre y Dorsal */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              Nombre del Jugador
+            </label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700/80 focus:border-camarma-blue focus:ring-1 focus:ring-camarma-blue text-white rounded-xl px-4 py-3 text-base outline-none placeholder:text-slate-500"
+              placeholder="Ej. Juan Pérez"
+              required
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              Dorsal <span className="text-slate-400 font-normal lowercase">(opc.)</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="99"
+              value={dorsal}
+              onChange={(e) => setDorsal(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700/80 focus:border-camarma-blue focus:ring-1 focus:ring-camarma-blue text-white rounded-xl px-4 py-3 text-base outline-none placeholder:text-slate-500"
+              placeholder="Ej. 10"
+              disabled={loading}
+            />
+          </div>
         </div>
 
         {/* Fecha de Nacimiento y Posición en Campo */}

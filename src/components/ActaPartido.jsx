@@ -230,7 +230,7 @@ function ModalSubstitucion({
                   const esTitular = titularesIds.includes(id);
                   return (
                     <option key={id} value={id}>
-                      {j.nombre} {esTitular ? "(Titular)" : "(Banquillo / En campo)"}
+                      {j.dorsal ? `#${j.dorsal} - ` : ""}{j.nombre} {esTitular ? "(Titular)" : "(Banquillo / En campo)"}
                     </option>
                   );
                 })}
@@ -265,7 +265,7 @@ function ModalSubstitucion({
                   if (!j) return null;
                   return (
                     <option key={id} value={id}>
-                      {j.nombre} (Banquillo)
+                      {j.dorsal ? `#${j.dorsal} - ` : ""}{j.nombre} (Banquillo)
                     </option>
                   );
                 })}
@@ -275,7 +275,7 @@ function ModalSubstitucion({
                   if (!j) return null;
                   return (
                     <option key={id} value={id}>
-                      {j.nombre} (🔄 Reingreso - Convocado)
+                      {j.dorsal ? `#${j.dorsal} - ` : ""}{j.nombre} (🔄 Reingreso - Convocado)
                     </option>
                   );
                 })}
@@ -542,7 +542,14 @@ function ModalJugadorActa({
               </div>
             )}
             <div>
-              <h4 className="font-black text-white text-base leading-tight font-sans">{jugador?.nombre}</h4>
+              <h4 className="font-black text-white text-base leading-tight font-sans flex items-center gap-1.5">
+                {jugador?.dorsal && (
+                  <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                    #{jugador.dorsal}
+                  </span>
+                )}
+                {jugador?.nombre}
+              </h4>
               <span className="inline-block text-[9px] font-black uppercase text-camarma-gold tracking-widest mt-0.5">
                 {jugador?.posicion || "Jugador"}
               </span>
@@ -1188,41 +1195,55 @@ function SlotJugador({ slot, jugadorAsignado, onClick }) {
   const isPortero = slot.id === "POR";
   return (
     <div
-      className="absolute flex flex-col items-center gap-1.5 cursor-pointer group select-none transition-all duration-300"
+      className="absolute flex flex-col items-center gap-1 cursor-pointer group select-none transition-all duration-300 z-10"
       style={{
         top: `${slot.top}%`,
         left: `${slot.left}%`,
         transform: "translate(-50%, -50%)",
-        minWidth: "68px",
+        minWidth: "75px",
+        maxWidth: "125px",
       }}
       onClick={() => onClick(slot.id)}
     >
-      {/* Foto o avatar vacío */}
-      <div className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 shadow-2xl flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:scale-105 group-active:scale-95
-        ${jugadorAsignado 
-          ? (isPortero 
-            ? "border-amber-500 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
-            : "border-camarma-blue bg-camarma-blue/10 shadow-[0_0_12px_rgba(30,144,255,0.25)]") 
-          : "border-white/10 bg-slate-950/50 border-dashed hover:border-white/30 hover:bg-slate-900/60"}`}>
-        {jugadorAsignado?.fotoUrl ? (
-          <img src={jugadorAsignado.fotoUrl} alt={jugadorAsignado.nombre} className="w-full h-full object-cover" />
-        ) : (
-          <User className={`w-5 h-5 sm:w-6 sm:h-6 ${jugadorAsignado ? "text-white" : "text-white/20 group-hover:text-white/40 transition-colors"}`} />
-        )}
-        {/* Indicador de más si está vacío */}
-        {!jugadorAsignado && (
-          <span className="absolute inset-0 flex items-center justify-center text-white/0 group-hover:text-white/45 text-xl font-bold transition-all bg-black/0 group-hover:bg-slate-900/30">
-            +
+      {/* Foto o avatar vacío con dorsal */}
+      <div className="relative">
+        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 shadow-2xl flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:scale-105 group-active:scale-95
+          ${jugadorAsignado 
+            ? (isPortero 
+              ? "border-amber-500 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
+              : "border-camarma-blue bg-camarma-blue/10 shadow-[0_0_12px_rgba(30,144,255,0.25)]") 
+            : "border-white/10 bg-slate-950/50 border-dashed hover:border-white/30 hover:bg-slate-900/60"}`}>
+          {jugadorAsignado?.fotoUrl ? (
+            <img src={jugadorAsignado.fotoUrl} alt={jugadorAsignado.nombre} className="w-full h-full object-cover" />
+          ) : (
+            <User className={`w-5 h-5 sm:w-6 sm:h-6 ${jugadorAsignado ? "text-white" : "text-white/20 group-hover:text-white/40 transition-colors"}`} />
+          )}
+          {/* Indicador de más si está vacío */}
+          {!jugadorAsignado && (
+            <span className="absolute inset-0 flex items-center justify-center text-white/0 group-hover:text-white/45 text-xl font-bold transition-all bg-black/0 group-hover:bg-slate-900/30">
+              +
+            </span>
+          )}
+        </div>
+        {/* Dorsal badge flotante en la foto */}
+        {jugadorAsignado?.dorsal && (
+          <span className="absolute -bottom-1 -right-1 bg-camarma-blue text-white font-mono font-black text-[9px] sm:text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-950 shadow-md">
+            {jugadorAsignado.dorsal}
           </span>
         )}
       </div>
 
-      {/* Nombre corto */}
-      <span className={`text-[9px] sm:text-[10px] font-black leading-tight text-center rounded-lg px-2 py-0.5 max-w-[66px] sm:max-w-[76px] truncate border shadow-md transition-all duration-300
-        ${jugadorAsignado 
-          ? "text-white bg-slate-950/90 border-slate-800/80" 
-          : "text-slate-400 bg-slate-950/40 border-white/5 group-hover:text-white group-hover:border-white/20"}`}>
-        {jugadorAsignado ? jugadorAsignado.nombre.split(" ").slice(-1)[0] : slot.label}
+      {/* Nombre completo */}
+      <span
+        className={`text-[9px] sm:text-[10px] font-black leading-tight text-center rounded-lg px-2 py-0.5 border shadow-md transition-all duration-300 break-words whitespace-normal max-w-[85px] sm:max-w-[110px]
+          ${jugadorAsignado 
+            ? "text-white bg-slate-950/90 border-slate-800/80" 
+            : "text-slate-400 bg-slate-950/40 border-white/5 group-hover:text-white group-hover:border-white/20"}`}
+        title={jugadorAsignado ? (jugadorAsignado.dorsal ? `#${jugadorAsignado.dorsal} ${jugadorAsignado.nombre}` : jugadorAsignado.nombre) : slot.label}
+      >
+        {jugadorAsignado 
+          ? (jugadorAsignado.dorsal ? `#${jugadorAsignado.dorsal} ${jugadorAsignado.nombre}` : jugadorAsignado.nombre)
+          : slot.label}
       </span>
     </div>
   );
@@ -1925,6 +1946,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       const stats = statsJugadores[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
       return {
         nombre: p ? p.nombre : "Jugador",
+        dorsal: p?.dorsal || "",
         posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
         prioridad: getPositionPriority(p ? p.posicion : ""),
         minutos: stats.minutos || 0,
@@ -1956,7 +1978,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
     const rowsHtml = allPlayersReport.map(r => `
       <tr>
-        <td><strong>${r.nombre}</strong></td>
+        <td><strong>${r.dorsal ? `#${r.dorsal} ` : ""}${r.nombre}</strong></td>
         <td class="text-slate-500">${r.posicion}</td>
         <td class="text-center font-bold">${r.tipo}</td>
         <td class="text-center">${r.minutos}'</td>
@@ -2004,6 +2026,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       const injustificada = !motivo || motivo.toLowerCase() === "falta injustificada";
       return {
         nombre: p ? p.nombre : "Jugador",
+        dorsal: p?.dorsal || "",
         posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
         motivo: motivo || "Falta injustificada",
         injustificada
@@ -2146,7 +2169,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
           ${mvpPlayer ? `
             <div class="mvp-box">
-              🌟 <strong>MVP del Encuentro:</strong> ${mvpPlayer.nombre} (${mvpPlayer.posicion || "Jugador"})
+              🌟 <strong>MVP del Encuentro:</strong> ${mvpPlayer.dorsal ? `#${mvpPlayer.dorsal} - ` : ""}${mvpPlayer.nombre} (${mvpPlayer.posicion || "Jugador"})
             </div>
           ` : ""}
 
@@ -2194,8 +2217,8 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                   return `
                     <tr>
                       <td class="text-center font-mono" style="font-weight: 800; color: #ea580c;">${s.minuto}'</td>
-                      <td style="color: #dc2626; font-weight: 600;">🔴 ${pSale ? pSale.nombre : "Jugador"}</td>
-                      <td style="color: #16a34a; font-weight: 600;">🟢 ${pEntra ? pEntra.nombre : "Jugador"}</td>
+                      <td style="color: #dc2626; font-weight: 600;">🔴 ${pSale ? (pSale.dorsal ? `#${pSale.dorsal} ` : "") + pSale.nombre : "Jugador"}</td>
+                      <td style="color: #16a34a; font-weight: 600;">🟢 ${pEntra ? (pEntra.dorsal ? `#${pEntra.dorsal} ` : "") + pEntra.nombre : "Jugador"}</td>
                       <td style="color: #64748b; font-size: 11px;">${s.motivo || "-"}</td>
                     </tr>
                   `;
@@ -2217,7 +2240,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
               <tbody>
                 ${bajasReport.map(b => `
                   <tr>
-                    <td><strong>${b.nombre}</strong></td>
+                    <td><strong>${b.dorsal ? `#${b.dorsal} ` : ""}${b.nombre}</strong></td>
                     <td class="text-slate-500">${b.posicion}</td>
                     <td style="color: ${b.injustificada ? '#ef4444' : '#f59e0b'}; font-weight: 600;">
                       ${b.injustificada ? '❌ Falta Injustificada' : `⚠️ ${b.motivo}`}
@@ -2398,8 +2421,13 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                             <User className="w-3.5 h-3.5 text-slate-400" />
                           </div>
                         )}
+                        {jug.dorsal && (
+                          <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                            #{jug.dorsal}
+                          </span>
+                        )}
                         <span className="text-xs font-bold text-white group-hover:text-camarma-blue transition-colors">
-                          {jug.nombre.split(" ").slice(-1)[0] || jug.nombre}
+                          {jug.nombre}
                         </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); removeSuplente(supId); }}
@@ -2482,11 +2510,11 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                             <div className="min-w-0 text-left">
                               <div className="flex items-center gap-2 flex-wrap text-xs">
                                 <span className="font-bold text-red-400">
-                                  🔴 Sale: {pSale ? pSale.nombre : "Jugador"}
+                                  🔴 Sale: {pSale ? (pSale.dorsal ? `#${pSale.dorsal} ` : "") + pSale.nombre : "Jugador"}
                                 </span>
                                 <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                                 <span className="font-bold text-emerald-400">
-                                  🟢 Entra: {pEntra ? pEntra.nombre : "Jugador"}
+                                  🟢 Entra: {pEntra ? (pEntra.dorsal ? `#${pEntra.dorsal} ` : "") + pEntra.nombre : "Jugador"}
                                 </span>
                                 {esReingreso && (
                                   <span className="text-[9px] bg-blue-500/15 border border-blue-500/30 text-blue-300 font-extrabold px-1.5 py-0.5 rounded-md">
@@ -2565,8 +2593,13 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                               </div>
                             )}
                             <div className="min-w-0 flex-1 text-left">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-bold text-white block truncate leading-tight group-hover:text-camarma-blue-light transition-colors">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {jug.dorsal && (
+                                  <span className="text-rose-400 font-mono font-black text-xs bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                    #{jug.dorsal}
+                                  </span>
+                                )}
+                                <span className="text-xs font-bold text-white leading-tight group-hover:text-camarma-blue-light transition-colors">
                                   {jug.nombre}
                                 </span>
                                 <span className="text-[10px] text-slate-500 font-semibold shrink-0">
@@ -2639,7 +2672,14 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                               </div>
                             )}
                             <div className="min-w-0">
-                              <span className="text-xs font-bold text-white block truncate">{jug.nombre}</span>
+                              <span className="text-xs font-bold text-white block truncate flex items-center gap-1.5">
+                                {jug.dorsal && (
+                                  <span className="text-camarma-gold font-mono font-black text-[10px] bg-camarma-gold/10 border border-camarma-gold/30 px-1 py-0.2 rounded shrink-0">
+                                    #{jug.dorsal}
+                                  </span>
+                                )}
+                                {jug.nombre}
+                              </span>
                               <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
                                 {slotEntry ? `Titular (${slotEntry[0]})` : "Suplente"}
                               </span>
@@ -2748,7 +2788,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                         const p = getJugador(pid);
                         return p ? (
                           <option key={pid} value={pid} className="bg-slate-900 text-white">
-                            {p.nombre} ({p.posicion || (p.isPortero ? "Portero" : "Jugador")})
+                            {p.dorsal ? `#${p.dorsal} - ` : ""}{p.nombre} ({p.posicion || (p.isPortero ? "Portero" : "Jugador")})
                           </option>
                         ) : null;
                       })}
@@ -2992,7 +3032,14 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-bold text-white group-hover:text-camarma-blue transition-colors">{jug.nombre}</p>
+                      <p className="text-sm font-bold text-white group-hover:text-camarma-blue transition-colors flex items-center gap-1.5">
+                        {jug.dorsal && (
+                          <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                            #{jug.dorsal}
+                          </span>
+                        )}
+                        {jug.nombre}
+                      </p>
                       <p className="text-[10px] text-slate-500 font-semibold uppercase mt-0.5">{jug.posicion || (jug.isPortero ? "Portero" : "Jugador")}</p>
                     </div>
                   </button>
@@ -3082,7 +3129,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                     Acción de Convocatoria
                   </span>
-                  <h4 className="text-base font-black text-white leading-tight truncate">
+                  <h4 className="text-base font-black text-white leading-tight flex items-center gap-1.5">
+                    {playerActionModal.dorsal && (
+                      <span className="text-camarma-gold font-mono font-black text-xs bg-camarma-gold/10 border border-camarma-gold/30 px-1.5 py-0.5 rounded-md shrink-0">
+                        #{playerActionModal.dorsal}
+                      </span>
+                    )}
                     {playerActionModal.nombre}
                   </h4>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -3110,7 +3162,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
             {/* Opciones disponibles */}
             <div className="p-5 space-y-3 text-left">
               <p className="text-xs text-slate-400 font-medium">
-                ¿Qué acción quieres realizar con <strong>{playerActionModal.nombre.split(" ")[0]}</strong>?
+                ¿Qué acción quieres realizar con <strong>{playerActionModal.nombre}</strong>?
               </p>
 
               <div className="space-y-2.5">
