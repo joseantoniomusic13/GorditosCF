@@ -43,13 +43,15 @@ import {
   Zap,
   MapPin,
   Archive,
-  Download
+  Download,
+  Database
 } from "lucide-react";
 import AddPlayerForm from "./AddPlayerForm";
 import ActaPartido from "./ActaPartido";
 import EditPlayerModal from "./EditPlayerModal";
 import EditInjuryModal from "./EditInjuryModal";
 import AltaPlayerModal from "./AltaPlayerModal";
+import DatabaseBackupModal from "./DatabaseBackupModal";
 import { LOGO_BASE64 } from "../logoBase64";
 import { exportSeasonZip } from "../utils/seasonBackupZip";
 
@@ -121,6 +123,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   const [descargandoZip, setDescargandoZip] = useState(false);
   const [zipProgress, setZipProgress] = useState(null); // { current, total, percent, label }
   const [autoDownloadZipOnSeasonReset, setAutoDownloadZipOnSeasonReset] = useState(true);
+  const [showBackupModal, setShowBackupModal] = useState(false); // Modal de copia de seguridad / restauración Firestore
   const [rival, setRival] = useState("");
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
@@ -1829,6 +1832,16 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
             </button>
           )}
           <button
+            onClick={() => setShowBackupModal(true)}
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 rounded-xl text-camarma-gold hover:text-yellow-300 border border-camarma-gold/30 hover:border-camarma-gold/60 transition-all cursor-pointer text-xs font-extrabold shadow-lg active:scale-95 uppercase tracking-wider backdrop-blur-sm"
+            style={{ background: 'rgba(234,179,8,0.10)' }}
+            title="Copia de Seguridad de la Base de Datos (Firestore)"
+          >
+            <Database className="w-4 h-4 text-camarma-gold shrink-0" />
+            <span className="hidden md:inline">Copia de Seguridad</span>
+            <span className="inline md:hidden">Copia BD</span>
+          </button>
+          <button
             onClick={handleSignOut}
             className="flex items-center justify-center p-2.5 rounded-xl text-white/50 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all cursor-pointer active:scale-95 backdrop-blur-sm"
             style={{ background: 'rgba(255,255,255,0.05)' }}
@@ -2833,6 +2846,15 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
+                  onClick={() => setShowBackupModal(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-camarma-gold hover:text-white border border-camarma-gold/30 hover:border-camarma-gold text-[10.5px] font-bold py-2.5 px-3.5 rounded-xl transition-all cursor-pointer active:scale-95 uppercase tracking-wider backdrop-blur-sm bg-camarma-gold/10"
+                  title="Copia de Seguridad y Restauración de la Base de Datos Firestore"
+                >
+                  <Database className="w-3.5 h-3.5 text-camarma-gold" />
+                  Copia BD Firestore
+                </button>
+                <button
+                  type="button"
                   onClick={handleDownloadSeasonZip}
                   disabled={descargandoZip}
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-[10.5px] font-bold py-2.5 px-3.5 rounded-xl transition-all cursor-pointer active:scale-95 uppercase tracking-wider backdrop-blur-sm bg-slate-950/40"
@@ -3798,6 +3820,22 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                   Descargar ZIP con todos los PDFs automáticamente antes de reiniciar datos
                 </span>
               </label>
+
+              {/* Botón para abrir modal de Copia de Seguridad completa */}
+              <div className="pt-2 border-t border-slate-900/60 flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">¿Quieres un respaldo íntegro de la BD?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNuevaTemporadaModal(false);
+                    setShowBackupModal(true);
+                  }}
+                  className="text-[10.5px] font-bold text-camarma-gold hover:text-yellow-300 flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Database className="w-3 h-3" />
+                  Copia de Seguridad Firestore
+                </button>
+              </div>
             </div>
 
             {/* Advertencia */}
@@ -4256,6 +4294,7 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                 <li>El botón <strong className="text-camarma-gold">Nueva Temporada</strong> permite reiniciar los datos para un nuevo curso conservando las fichas y datos personales de los futbolistas.</li>
                 <li><strong className="text-slate-200">Copia de Seguridad en ZIP:</strong> Puedes descargar un archivo ZIP que recopila automáticamente <strong className="text-amber-300">todos los PDFs de la temporada</strong>: el reporte general, la ficha de cada jugador, todas las actas de partidos y el historial de entrenamientos, organizados en carpetas.</li>
                 <li>La descarga en ZIP también se puede realizar en cualquier momento desde el botón <strong className="text-slate-200">Descargar ZIP</strong> en la barra de temporada.</li>
+                <li><strong className="text-emerald-400">Copia de Seguridad de Base de Datos (Firestore):</strong> Desde el botón <strong className="text-camarma-gold">Copia de Seguridad</strong> en la cabecera principal o en la barra de partidos, puedes exportar o restaurar toda la base de datos de Firestore (jugadores, fotos, actas oficiales PDF en fragmentos, partidos y entrenamientos) para tener un respaldo semanal o recuperarte de cualquier imprevisto.</li>
               </ul>
             </div>
 
@@ -4273,6 +4312,17 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
         </div>
       </div>
     )}
+
+    {/* Modal de Copia de Seguridad y Restauración de Base de Datos Firestore */}
+    <DatabaseBackupModal
+      isOpen={showBackupModal}
+      onClose={() => setShowBackupModal(false)}
+      jugadores={jugadores}
+      partidos={partidos}
+      entrenamientos={entrenamientos}
+      temporadaConfig={temporadaConfig}
+      showToast={showToast}
+    />
 
     {/* Modal para Confirmar Alta Médica de un Jugador */}
     {altaPlayer && (
