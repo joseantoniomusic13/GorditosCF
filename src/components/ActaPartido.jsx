@@ -1460,8 +1460,15 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
   // ── Handlers para Gestión de Sustituciones (Cambios Volantes / Rotativos) ──
   const sincronizarMinutosConSustituciones = (listaSubs) => {
-    const titularesIds = Object.values(asignaciones).filter(Boolean);
-    const suplentesIds = suplentes;
+    const activeSlots = (FORMACIONES[formacion] || FORMACIONES["4-3-3"])?.slots || [];
+    const activeSlotIds = new Set(activeSlots.map(s => s.id));
+    const rawTitularesIds = activeSlotIds.size > 0
+      ? activeSlots.map(s => asignaciones[s.id]).filter(Boolean)
+      : Object.values(asignaciones || {}).filter(Boolean);
+    const titularesIds = Array.from(new Set(rawTitularesIds))
+      .filter(id => Boolean(id) && jugadores.some(j => j && j.id === id && j.nombre));
+    const suplentesIds = Array.from(new Set(suplentes || []))
+      .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
     const est = calcularEstadisticasCambios(titularesIds, suplentesIds, listaSubs, 90);
 
     setStatsJugadores(prev => {
@@ -1938,17 +1945,27 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       return 5;
     };
 
-    const titularesIds = Object.values(asignaciones).filter(Boolean);
-    const suplentesIds = suplentes || [];
+    const activeSlots = (FORMACIONES[formacion] || FORMACIONES["4-3-3"])?.slots || [];
+    const activeSlotIds = new Set(activeSlots.map(s => s.id));
+    const rawTitularesIds = activeSlotIds.size > 0
+      ? activeSlots.map(s => asignaciones[s.id]).filter(Boolean)
+      : Object.values(asignaciones || {}).filter(Boolean);
+
+    const titularesIds = Array.from(new Set(rawTitularesIds))
+      .filter(id => Boolean(id) && jugadores.some(j => j && j.id === id && j.nombre));
+
+    const suplentesIds = Array.from(new Set(suplentes || []))
+      .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
 
     const getPlayerWithStats = (id, esTitular) => {
-      const p = jugadores.find(j => j.id === id);
+      const p = jugadores.find(j => j && j.id === id);
+      if (!p || !p.nombre) return null;
       const stats = statsJugadores[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
       return {
-        nombre: p ? p.nombre : "Jugador",
-        dorsal: p?.dorsal || "",
-        posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
-        prioridad: getPositionPriority(p ? p.posicion : ""),
+        nombre: p.nombre,
+        dorsal: p.dorsal || "",
+        posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
+        prioridad: getPositionPriority(p.posicion || ""),
         minutos: stats.minutos || 0,
         goles: stats.goles || 0,
         golesContra: stats.golesContra || 0,
@@ -1957,7 +1974,7 @@ export default function ActaPartido({ match, jugadores, onClose }) {
         rojas: stats.rojas || 0,
         convocado: stats.convocado ? "Sí" : "No",
         tipo: esTitular ? "Titular" : "Suplente",
-        isPortero: p ? (p.isPortero || p.posicion === "Portero") : false,
+        isPortero: Boolean(p.isPortero || p.posicion === "Portero"),
         comentarios: (stats.comentarios || stats.comentario || stats.observaciones || "").trim(),
         golesDetalle: stats.golesDetalle || [],
         asistenciasDetalle: stats.asistenciasDetalle || [],
@@ -1968,10 +1985,12 @@ export default function ActaPartido({ match, jugadores, onClose }) {
 
     const titularesSorted = titularesIds
       .map(id => getPlayerWithStats(id, true))
+      .filter(Boolean)
       .sort((a, b) => a.prioridad - b.prioridad);
 
     const suplentesSorted = suplentesIds
       .map(id => getPlayerWithStats(id, false))
+      .filter(Boolean)
       .sort((a, b) => a.prioridad - b.prioridad);
 
     const allPlayersReport = [...titularesSorted, ...suplentesSorted];
@@ -2018,20 +2037,23 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       ` : ''}
     `).join("");
 
-    const mvpPlayer = jugadores.find(j => j.id === mvpJugadorId);
+    const mvpPlayer = jugadores.find(j => j && j.id === mvpJugadorId);
 
-    const bajasReport = matchFaltas.map(id => {
-      const p = getJugador(id);
-      const motivo = matchAusencias[id] || (p?.lesionado ? "Lesión" : "");
-      const injustificada = !motivo || motivo.toLowerCase() === "falta injustificada";
-      return {
-        nombre: p ? p.nombre : "Jugador",
-        dorsal: p?.dorsal || "",
-        posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
-        motivo: motivo || "Falta injustificada",
-        injustificada
-      };
-    });
+    const bajasReport = (matchFaltas || [])
+      .map(id => {
+        const p = getJugador(id);
+        if (!p || !p.nombre) return null;
+        const motivo = matchAusencias[id] || (p.lesionado ? "Lesión" : "");
+        const injustificada = !motivo || motivo.toLowerCase() === "falta injustificada";
+        return {
+          nombre: p.nombre,
+          dorsal: p.dorsal || "",
+          posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
+          motivo: motivo || "Falta injustificada",
+          injustificada
+        };
+      })
+      .filter(Boolean);
 
     const printWindow = window.open("", "_blank");
     printWindow.document.write(`
@@ -2097,6 +2119,8 @@ export default function ActaPartido({ match, jugadores, onClose }) {
               border-left: 4px solid #3b82f6;
               border-radius: 4px;
               margin-bottom: 30px;
+              white-space: pre-wrap;
+              word-break: break-word;
             }
             table {
               width: 100%;
@@ -2214,11 +2238,14 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                 ${sustituciones.map(s => {
                   const pSale = getJugador(s.saleId);
                   const pEntra = getJugador(s.entraId);
+                  if (!pSale && !pEntra) return "";
+                  const saleNombre = pSale ? (pSale.dorsal ? `#${pSale.dorsal} ` : "") + pSale.nombre : "N/D";
+                  const entraNombre = pEntra ? (pEntra.dorsal ? `#${pEntra.dorsal} ` : "") + pEntra.nombre : "N/D";
                   return `
                     <tr>
                       <td class="text-center font-mono" style="font-weight: 800; color: #ea580c;">${s.minuto}'</td>
-                      <td style="color: #dc2626; font-weight: 600;">🔴 ${pSale ? (pSale.dorsal ? `#${pSale.dorsal} ` : "") + pSale.nombre : "Jugador"}</td>
-                      <td style="color: #16a34a; font-weight: 600;">🟢 ${pEntra ? (pEntra.dorsal ? `#${pEntra.dorsal} ` : "") + pEntra.nombre : "Jugador"}</td>
+                      <td style="color: #dc2626; font-weight: 600;">🔴 ${saleNombre}</td>
+                      <td style="color: #16a34a; font-weight: 600;">🟢 ${entraNombre}</td>
                       <td style="color: #64748b; font-size: 11px;">${s.motivo || "-"}</td>
                     </tr>
                   `;
@@ -2807,9 +2834,9 @@ export default function ActaPartido({ match, jugadores, onClose }) {
                   <textarea
                     value={cronica}
                     onChange={(e) => setCronica(e.target.value)}
-                    placeholder="Escribe aquí el resumen del partido, notas tácticas o comentarios destacados para los aficionados y jugadores..."
-                    rows={5}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-camarma-blue text-white rounded-2xl p-4 text-sm outline-none resize-none leading-relaxed transition-all font-medium"
+                    placeholder="Escribe aquí el resumen del partido, notas tácticas o comentarios destacados para los aficionados y jugadores (sin límite de caracteres)..."
+                    rows={6}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-camarma-blue text-white rounded-2xl p-4 text-sm outline-none resize-y min-h-[140px] leading-relaxed transition-all font-medium"
                   />
                 </div>
               </div>

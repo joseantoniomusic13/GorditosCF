@@ -404,16 +404,21 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
     return 5;
   };
 
-  const titularesIds = Object.values(match.alineacion?.asignaciones || {}).filter(Boolean);
-  const suplentesIds = match.alineacion?.suplentes || [];
+  const rawTitulares = Object.values(match.alineacion?.asignaciones || {}).filter(Boolean);
+  const titularesIds = Array.from(new Set(rawTitulares))
+    .filter(id => Boolean(id) && jugadores.some(j => j && j.id === id && j.nombre));
+
+  const suplentesIds = Array.from(new Set(match.alineacion?.suplentes || []))
+    .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
 
   const getPlayerWithStats = (id, esTitular) => {
-    const p = jugadores.find(j => j.id === id);
+    const p = jugadores.find(j => j && j.id === id);
+    if (!p || !p.nombre) return null;
     const stats = match.statsJugadores?.[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
     return {
-      nombre: p ? p.nombre : "Jugador",
-      posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
-      prioridad: getPositionPriority(p ? p.posicion : ""),
+      nombre: p.nombre,
+      posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
+      prioridad: getPositionPriority(p.posicion || ""),
       minutos: stats.minutos || 0,
       goles: stats.goles || 0,
       golesContra: stats.golesContra || 0,
@@ -421,13 +426,13 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
       amarillas: stats.amarillas || 0,
       rojas: stats.rojas || 0,
       tipo: esTitular ? "Titular" : "Suplente",
-      isPortero: p ? (p.isPortero || p.posicion === "Portero") : false
+      isPortero: Boolean(p.isPortero || p.posicion === "Portero")
     };
   };
 
   const allPlayersReport = [
-    ...titularesIds.map(id => getPlayerWithStats(id, true)).sort((a, b) => a.prioridad - b.prioridad),
-    ...suplentesIds.map(id => getPlayerWithStats(id, false)).sort((a, b) => a.prioridad - b.prioridad)
+    ...titularesIds.map(id => getPlayerWithStats(id, true)).filter(Boolean).sort((a, b) => a.prioridad - b.prioridad),
+    ...suplentesIds.map(id => getPlayerWithStats(id, false)).filter(Boolean).sort((a, b) => a.prioridad - b.prioridad)
   ];
 
   const playersRows = allPlayersReport.map(r => `
@@ -442,18 +447,20 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
     </tr>
   `).join("");
 
-  const matchFaltas = match.faltas || Object.keys(match.ausencias || {});
+  const matchFaltas = (match.faltas || Object.keys(match.ausencias || {}))
+    .filter(pid => jugadores.some(j => j && j.id === pid && j.nombre));
   const bajasRows = matchFaltas.map(pid => {
-    const p = jugadores.find(j => j.id === pid);
+    const p = jugadores.find(j => j && j.id === pid);
+    if (!p) return "";
     const motivo = match.ausencias?.[pid] || "Sin justificar";
     return `
       <tr>
-        <td><strong>${p ? p.nombre : "Jugador"}</strong></td>
-        <td>${p?.posicion || "Jugador"}</td>
+        <td><strong>${p.nombre}</strong></td>
+        <td>${p.posicion || (p.isPortero ? "Portero" : "Jugador")}</td>
         <td style="color:#b45309; font-weight:600;">⚠️ ${motivo}</td>
       </tr>
     `;
-  }).join("");
+  }).filter(Boolean).join("");
 
   const d = new Date(match.fecha + "T00:00:00");
   const fechaStr = d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -564,7 +571,7 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
 
         ${match.cronica ? `
           <div class="section-title">Crónica del Partido</div>
-          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; font-size:11.5px; line-height:1.5; color:#334155; font-style:italic;">
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; font-size:11.5px; line-height:1.5; color:#334155; font-style:italic; white-space:pre-wrap; word-break:break-word;">
             "${match.cronica}"
           </div>
         ` : ''}

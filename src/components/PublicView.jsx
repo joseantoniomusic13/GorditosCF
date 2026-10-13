@@ -216,16 +216,26 @@ export default function PublicView({ onAdminClick, isAdmin }) {
     };
 
     // Ordenar Titulares y Suplentes por posición
-    const titularesIds = Object.values(match.alineacion?.asignaciones || {}).filter(Boolean);
-    const suplentesIds = match.alineacion?.suplentes || [];
+    const activeSlots = (FORMACIONES[match.alineacion?.formacion] || FORMACIONES["4-3-3"])?.slots || [];
+    const activeSlotIds = new Set(activeSlots.map(s => s.id));
+    const rawTitularesIds = activeSlotIds.size > 0
+      ? activeSlots.map(s => match.alineacion?.asignaciones?.[s.id]).filter(Boolean)
+      : Object.values(match.alineacion?.asignaciones || {}).filter(Boolean);
+
+    const titularesIds = Array.from(new Set(rawTitularesIds))
+      .filter(id => Boolean(id) && jugadores.some(j => j && j.id === id && j.nombre));
+
+    const suplentesIds = Array.from(new Set(match.alineacion?.suplentes || []))
+      .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
 
     const getPlayerWithStats = (id, esTitular) => {
-      const p = jugadores.find(j => j.id === id);
+      const p = jugadores.find(j => j && j.id === id);
+      if (!p || !p.nombre) return null;
       const stats = match.statsJugadores?.[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
       return {
-        nombre: p ? p.nombre : "Jugador",
-        posicion: p ? (p.posicion || (p.isPortero ? "Portero" : "Jugador")) : "N/A",
-        prioridad: getPositionPriority(p ? p.posicion : ""),
+        nombre: p.nombre,
+        posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
+        prioridad: getPositionPriority(p.posicion || ""),
         minutos: stats.minutos || 0,
         goles: stats.goles || 0,
         golesContra: stats.golesContra || 0,
@@ -234,16 +244,18 @@ export default function PublicView({ onAdminClick, isAdmin }) {
         rojas: stats.rojas || 0,
         convocado: stats.convocado ? "Sí" : "No",
         tipo: esTitular ? "Titular" : "Suplente",
-        isPortero: p ? (p.isPortero || p.posicion === "Portero") : false
+        isPortero: Boolean(p.isPortero || p.posicion === "Portero")
       };
     };
 
     const titularesSorted = titularesIds
       .map(id => getPlayerWithStats(id, true))
+      .filter(Boolean)
       .sort((a, b) => a.prioridad - b.prioridad);
 
     const suplentesSorted = suplentesIds
       .map(id => getPlayerWithStats(id, false))
+      .filter(Boolean)
       .sort((a, b) => a.prioridad - b.prioridad);
 
     const allPlayersReport = [...titularesSorted, ...suplentesSorted];
@@ -328,6 +340,8 @@ export default function PublicView({ onAdminClick, isAdmin }) {
               border-left: 4px solid #3b82f6;
               border-radius: 4px;
               margin-bottom: 30px;
+              white-space: pre-wrap;
+              word-break: break-word;
             }
             table {
               width: 100%;
