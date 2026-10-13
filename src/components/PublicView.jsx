@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { db } from "../firebase";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
 import { Shield, Calendar, Award, LogIn, Trophy, Clock, Heart, AlertCircle, ClipboardList, User, Activity, TrendingUp, X, ArrowLeftRight, MapPin, FileText, ExternalLink, Loader2 } from "lucide-react";
 import { loadMatchPdfBlob, openOrDownloadPdf } from "../utils/matchPdfFirestore";
+import { calcularEstadisticasCambios } from "../utils/matchSubstitutions";
 
 const calcularEdad = (fechaNac) => {
   if (!fechaNac) return "N/A";
@@ -94,6 +95,22 @@ export default function PublicView({ onAdminClick, isAdmin }) {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [temporadaConfig, setTemporadaConfig] = useState(null); // { nombre, fechaInicio }
   const [loadingPublicPdf, setLoadingPublicPdf] = useState(false);
+
+  // Estadísticas calculadas automáticamente según las sustituciones del partido seleccionado
+  const estCambiosModal = useMemo(() => {
+    if (!selectedMatchDetails || !selectedMatchDetails.sustituciones || selectedMatchDetails.sustituciones.length === 0) {
+      return {};
+    }
+    const formacion = selectedMatchDetails.alineacion?.formacion || "4-3-3";
+    const activeSlots = (FORMACIONES[formacion] || FORMACIONES["4-3-3"])?.slots || [];
+    const activeSlotIds = new Set(activeSlots.map(s => s.id));
+    const rawTitulares = activeSlotIds.size > 0
+      ? activeSlots.map(s => selectedMatchDetails.alineacion?.asignaciones?.[s.id]).filter(Boolean)
+      : Object.values(selectedMatchDetails.alineacion?.asignaciones || {}).filter(Boolean);
+    const titIds = Array.from(new Set(rawTitulares)).filter(id => Boolean(id) && jugadores.some(j => j && j.id === id));
+    const supIds = Array.from(new Set(selectedMatchDetails.alineacion?.suplentes || [])).filter(id => Boolean(id) && !titIds.includes(id) && jugadores.some(j => j && j.id === id));
+    return calcularEstadisticasCambios(titIds, supIds, selectedMatchDetails.sustituciones, 90);
+  }, [selectedMatchDetails, jugadores]);
 
   // Helpers del calendario (solo lectura)
   const getDaysInMonth = (year, month) => {
@@ -228,15 +245,23 @@ export default function PublicView({ onAdminClick, isAdmin }) {
     const suplentesIds = Array.from(new Set(match.alineacion?.suplentes || []))
       .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
 
+    const estCambios = (match.sustituciones && match.sustituciones.length > 0)
+      ? calcularEstadisticasCambios(titularesIds, suplentesIds, match.sustituciones, 90)
+      : {};
+
     const getPlayerWithStats = (id, esTitular) => {
       const p = jugadores.find(j => j && j.id === id);
       if (!p || !p.nombre) return null;
       const stats = match.statsJugadores?.[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
+      const minutosFinal = (estCambios[id] && estCambios[id].minutosTotales !== undefined)
+        ? estCambios[id].minutosTotales
+        : (stats.minutos || 0);
+
       return {
         nombre: p.nombre,
         posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
         prioridad: getPositionPriority(p.posicion || ""),
-        minutos: stats.minutos || 0,
+        minutos: minutosFinal,
         goles: stats.goles || 0,
         golesContra: stats.golesContra || 0,
         asistencias: stats.asistencias || 0,
@@ -1598,6 +1623,9 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                             const p = jugadores.find(j => j.id === pid);
                             const stats = selectedMatchDetails.statsJugadores?.[pid];
                             if (!p) return null;
+                            const minutosJugador = estCambiosModal[pid]?.minutosTotales !== undefined
+                              ? estCambiosModal[pid].minutosTotales
+                              : (stats?.minutos || 0);
                             return (
                               <div key={pid} className="flex items-center justify-between text-xs py-1">
                                 <div className="flex items-center gap-2 min-w-0">
@@ -1605,7 +1633,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                   <span className="font-bold text-white truncate max-w-[150px]">{p.dorsal ? `#${p.dorsal} ` : ""}{p.nombre}</span>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 text-[10px]">
-                                  <span className="text-slate-400 font-semibold">{stats?.minutos || 0}'</span>
+                                  <span className="text-slate-400 font-semibold">{minutosJugador}'</span>
                                   <div className="flex items-center gap-1 select-none">
                                     {Array.from({ length: stats?.goles || 0 }).map((_, i) => (
                                       <span key={`g-${i}`}>⚽</span>
@@ -1636,6 +1664,9 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                               const p = jugadores.find(j => j.id === pid);
                               const stats = selectedMatchDetails.statsJugadores?.[pid];
                               if (!p) return null;
+                              const minutosJugador = estCambiosModal[pid]?.minutosTotales !== undefined
+                                ? estCambiosModal[pid].minutosTotales
+                                : (stats?.minutos || 0);
                               return (
                                 <div key={pid} className="flex items-center justify-between text-xs py-1">
                                   <div className="flex items-center gap-2 min-w-0">
@@ -1644,7 +1675,7 @@ export default function PublicView({ onAdminClick, isAdmin }) {
                                     <span className="text-[9px] text-slate-500 font-medium">(suplente)</span>
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0 text-[10px]">
-                                    <span className="text-slate-400 font-semibold">{stats?.minutos || 0}'</span>
+                                    <span className="text-slate-400 font-semibold">{minutosJugador}'</span>
                                     <div className="flex items-center gap-1 select-none">
                                       {Array.from({ length: stats?.goles || 0 }).map((_, i) => (
                                         <span key={`g-${i}`}>⚽</span>

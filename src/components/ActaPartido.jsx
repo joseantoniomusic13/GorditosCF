@@ -338,7 +338,35 @@ function ModalJugadorActa({
   onClose,
   onRemove
 }) {
-  const [minutos, setMinutos] = useState(stats.minutos ?? 90);
+  // Tramos calculados y sustituciones específicas de este jugador
+  const tramosInfo = useMemo(() => {
+    if (!jugador) return null;
+    return obtenerTramosJugador(jugador.id, titularesIds, suplentesIds, sustituciones, 90);
+  }, [jugador, titularesIds, suplentesIds, sustituciones]);
+
+  const subsDelJugador = useMemo(() => {
+    if (!jugador) return [];
+    return (sustituciones || []).filter(s => s.saleId === jugador.id || s.entraId === jugador.id);
+  }, [jugador, sustituciones]);
+
+  // Si tiene cambios registrados (o tramos calculados), sus minutos iniciales se sincronizan automáticamente con dichos tramos
+  const [minutos, setMinutos] = useState(() => {
+    if (tramosInfo && tramosInfo.totalMinutos !== undefined && subsDelJugador.length > 0) {
+      return tramosInfo.totalMinutos;
+    }
+    return stats.minutos ?? 90;
+  });
+  const [minutosManuales, setMinutosManuales] = useState(false);
+
+  // Sincronizar automáticamente si cambian los tramos calculados de este jugador y no se ha forzado manualmente
+  useEffect(() => {
+    if (tramosInfo && tramosInfo.totalMinutos !== undefined && subsDelJugador.length > 0) {
+      if (!minutosManuales) {
+        setMinutos(tramosInfo.totalMinutos);
+      }
+    }
+  }, [tramosInfo?.totalMinutos, subsDelJugador.length, minutosManuales]);
+
   const [goles, setGoles] = useState(stats.goles ?? 0);
   const [golesContra, setGolesContra] = useState(stats.golesContra ?? 0);
   const [asistencias, setAsistencias] = useState(stats.asistencias ?? 0);
@@ -350,17 +378,6 @@ function ModalJugadorActa({
   const [minCambio, setMinCambio] = useState(stats.minCambio ?? "");
   const [sustituidoPorId, setSustituidoPorId] = useState(stats.sustituidoPorId ?? "");
   const [comentarios, setComentarios] = useState(stats.comentarios ?? stats.comentario ?? stats.observaciones ?? "");
-
-  // Tramos calculados y sustituciones específicas de este jugador
-  const tramosInfo = useMemo(() => {
-    if (!jugador) return null;
-    return obtenerTramosJugador(jugador.id, titularesIds, suplentesIds, sustituciones, 90);
-  }, [jugador, titularesIds, suplentesIds, sustituciones]);
-
-  const subsDelJugador = useMemo(() => {
-    if (!jugador) return [];
-    return (sustituciones || []).filter(s => s.saleId === jugador.id || s.entraId === jugador.id);
-  }, [jugador, sustituciones]);
 
   // Detalle de goles y asistencias para registrar los minutos y penaltis
   const [golesDetalle, setGolesDetalle] = useState(() => {
@@ -657,7 +674,11 @@ function ModalJugadorActa({
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500">⏱️ Minutos Jugados</label>
             <div className="flex items-center gap-3 bg-slate-950/20 p-2 border border-slate-850 rounded-2xl">
               <button
-                onClick={() => setMinutos(Math.max(0, minutos - 5))}
+                type="button"
+                onClick={() => {
+                  setMinutos(Math.max(0, minutos - 5));
+                  setMinutosManuales(true);
+                }}
                 className="w-11 h-11 bg-slate-850 hover:bg-slate-800 text-slate-350 hover:text-white font-extrabold text-lg rounded-xl transition-all active:scale-90 cursor-pointer border border-slate-800"
               >
                 -
@@ -665,11 +686,18 @@ function ModalJugadorActa({
               <input
                 type="number"
                 value={minutos}
-                onChange={(e) => setMinutos(Math.min(120, Math.max(0, parseInt(e.target.value) || 0)))}
+                onChange={(e) => {
+                  setMinutos(Math.min(120, Math.max(0, parseInt(e.target.value) || 0)));
+                  setMinutosManuales(true);
+                }}
                 className="flex-1 bg-slate-950 border border-slate-850 text-white text-center text-xl font-bold rounded-xl py-2 outline-none focus:border-camarma-blue font-mono"
               />
               <button
-                onClick={() => setMinutos(Math.min(120, minutos + 5))}
+                type="button"
+                onClick={() => {
+                  setMinutos(Math.min(120, minutos + 5));
+                  setMinutosManuales(true);
+                }}
                 className="w-11 h-11 bg-slate-850 hover:bg-slate-800 text-slate-350 hover:text-white font-extrabold text-lg rounded-xl transition-all active:scale-90 cursor-pointer border border-slate-800"
               >
                 +
@@ -680,7 +708,10 @@ function ModalJugadorActa({
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMinutos(m)}
+                  onClick={() => {
+                    setMinutos(m);
+                    setMinutosManuales(true);
+                  }}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border ${minutos === m ? "bg-camarma-blue border-camarma-blue text-white shadow-sm" : "bg-slate-850 border-slate-800 text-slate-400 hover:text-white"}`}
                 >
                   {m}'
@@ -695,11 +726,19 @@ function ModalJugadorActa({
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className="text-slate-400 font-bold">⏱️ Según cambios:</span>
                     <span className="text-camarma-gold font-mono font-black text-sm">{tramosInfo.totalMinutos}'</span>
+                    {minutos === tramosInfo.totalMinutos && (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-1.5 py-0.5 rounded-md font-bold">
+                        ✓ Sincronizado
+                      </span>
+                    )}
                   </div>
                   {minutos !== tramosInfo.totalMinutos && (
                     <button
                       type="button"
-                      onClick={() => setMinutos(tramosInfo.totalMinutos)}
+                      onClick={() => {
+                        setMinutos(tramosInfo.totalMinutos);
+                        setMinutosManuales(false);
+                      }}
                       className="px-2.5 py-1 bg-camarma-blue/20 hover:bg-camarma-blue/30 border border-camarma-blue/40 text-camarma-blue-light text-[10px] font-extrabold rounded-lg cursor-pointer transition-all active:scale-95"
                     >
                       Aplicar {tramosInfo.totalMinutos}'
@@ -1484,6 +1523,13 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     });
   };
 
+  // Sincronizar automáticamente minutos al montar si el partido ya contiene sustituciones
+  useEffect(() => {
+    if (sustituciones && sustituciones.length > 0) {
+      sincronizarMinutosConSustituciones(sustituciones);
+    }
+  }, []);
+
   const handleSaveSub = (subData) => {
     const minInt = Math.min(120, Math.max(1, parseInt(subData.minuto) || 0));
     const finalSub = {
@@ -1494,23 +1540,18 @@ export default function ActaPartido({ match, jugadores, onClose }) {
       motivo: (subData.motivo || "").trim()
     };
 
-    setSustituciones(prev => {
-      const filtered = prev.filter(s => s.id !== finalSub.id);
-      const next = [...filtered, finalSub].sort((a, b) => a.minuto - b.minuto);
-      sincronizarMinutosConSustituciones(next);
-      return next;
-    });
+    const nextSubs = [...(sustituciones || []).filter(s => s.id !== finalSub.id), finalSub].sort((a, b) => a.minuto - b.minuto);
+    setSustituciones(nextSubs);
+    sincronizarMinutosConSustituciones(nextSubs);
 
     setModalSub(null);
     showToast(`Cambio registrado en el min ${minInt}'. Minutos actualizados.`, "success");
   };
 
   const handleDeleteSub = (subId) => {
-    setSustituciones(prev => {
-      const next = prev.filter(s => s.id !== subId);
-      sincronizarMinutosConSustituciones(next);
-      return next;
-    });
+    const nextSubs = (sustituciones || []).filter(s => s.id !== subId);
+    setSustituciones(nextSubs);
+    sincronizarMinutosConSustituciones(nextSubs);
     showToast("Sustitución eliminada. Minutos recalculados.", "info");
   };
 
@@ -1957,16 +1998,24 @@ export default function ActaPartido({ match, jugadores, onClose }) {
     const suplentesIds = Array.from(new Set(suplentes || []))
       .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
 
+    const estCambios = sustituciones && sustituciones.length > 0
+      ? calcularEstadisticasCambios(titularesIds, suplentesIds, sustituciones, 90)
+      : {};
+
     const getPlayerWithStats = (id, esTitular) => {
       const p = jugadores.find(j => j && j.id === id);
       if (!p || !p.nombre) return null;
       const stats = statsJugadores[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
+      const minutosFinal = (estCambios[id] && estCambios[id].minutosTotales !== undefined)
+        ? estCambios[id].minutosTotales
+        : (stats.minutos || 0);
+
       return {
         nombre: p.nombre,
         dorsal: p.dorsal || "",
         posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
         prioridad: getPositionPriority(p.posicion || ""),
-        minutos: stats.minutos || 0,
+        minutos: minutosFinal,
         goles: stats.goles || 0,
         golesContra: stats.golesContra || 0,
         asistencias: stats.asistencias || 0,

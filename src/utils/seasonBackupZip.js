@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import html2pdf from "html2pdf.js";
 import { LOGO_BASE64 } from "../logoBase64";
+import { calcularEstadisticasCambios } from "./matchSubstitutions";
 
 // Helper para calcular edad
 function calcularEdad(fechaNacimiento) {
@@ -143,9 +144,24 @@ export function getPlayerReportHTML({ player, partidos, entrenamientos, temporad
   let totalAmarillas = 0;
   let totalRojas = 0;
 
+  const getPlayerMatchMinutes = (match) => {
+    const s = match.statsJugadores?.[player.id];
+    if (!s) return 0;
+    if (match.sustituciones && match.sustituciones.length > 0) {
+      const rawTit = Object.values(match.alineacion?.asignaciones || {}).filter(Boolean);
+      const tit = Array.from(new Set(rawTit)).filter(Boolean);
+      const sup = (match.alineacion?.suplentes || []).filter(id => !tit.includes(id));
+      const est = calcularEstadisticasCambios(tit, sup, match.sustituciones, 90);
+      if (est[player.id] && est[player.id].minutosTotales !== undefined) {
+        return est[player.id].minutosTotales;
+      }
+    }
+    return s.minutos || 0;
+  };
+
   matchesPlayed.forEach(match => {
     const s = match.statsJugadores[player.id];
-    totalMinutos += s.minutos || 0;
+    totalMinutos += getPlayerMatchMinutes(match);
     totalGoles += player.isPortero ? (s.golesContra || 0) : (s.goles || 0);
     totalAsistencias += s.asistencias || 0;
     totalAmarillas += s.amarillas || 0;
@@ -161,6 +177,7 @@ export function getPlayerReportHTML({ player, partidos, entrenamientos, temporad
       : `${match.golesRival} - ${match.golesGorditos ?? match.golesCamarma ?? 0}`;
 
     const comentarioTexto = (s.comentarios || s.comentario || s.observaciones || "").trim();
+    const minutosPart = getPlayerMatchMinutes(match);
 
     return `
       <tr>
@@ -168,7 +185,7 @@ export function getPlayerReportHTML({ player, partidos, entrenamientos, temporad
         <td>${match.rival}</td>
         <td style="text-align:center;">${match.condicion === "local" ? "Casa" : "Fuera"}</td>
         <td style="text-align:center;">${score}</td>
-        <td style="text-align:center;">${s.minutos || 0}'</td>
+        <td style="text-align:center;">${minutosPart}'</td>
         <td style="text-align:center; font-weight:bold;">${player.isPortero ? `${s.golesContra || 0} (Rec)` : (s.goles > 0 ? `⚽ ${s.goles}` : "-")}</td>
         <td style="text-align:center;">${s.asistencias > 0 ? `👟 ${s.asistencias}` : "-"}</td>
         <td style="text-align:center;">${s.amarillas > 0 ? "🟨" : ""} ${s.rojas > 0 ? "🟥" : ""}</td>
@@ -408,18 +425,26 @@ export function getMatchReportHTML({ match, jugadores, temporadaNombre }) {
   const titularesIds = Array.from(new Set(rawTitulares))
     .filter(id => Boolean(id) && jugadores.some(j => j && j.id === id && j.nombre));
 
-  const suplentesIds = Array.from(new Set(match.alineacion?.suplentes || []))
+    const suplentesIds = Array.from(new Set(match.alineacion?.suplentes || []))
     .filter(id => Boolean(id) && !titularesIds.includes(id) && jugadores.some(j => j && j.id === id && j.nombre));
+
+  const estCambios = (match.sustituciones && match.sustituciones.length > 0)
+    ? calcularEstadisticasCambios(titularesIds, suplentesIds, match.sustituciones, 90)
+    : {};
 
   const getPlayerWithStats = (id, esTitular) => {
     const p = jugadores.find(j => j && j.id === id);
     if (!p || !p.nombre) return null;
     const stats = match.statsJugadores?.[id] || { minutos: 0, goles: 0, golesContra: 0, asistencias: 0, amarillas: 0, rojas: 0, convocado: false };
+    const minutosFinal = (estCambios[id] && estCambios[id].minutosTotales !== undefined)
+      ? estCambios[id].minutosTotales
+      : (stats.minutos || 0);
+
     return {
       nombre: p.nombre,
       posicion: p.posicion || (p.isPortero ? "Portero" : "Jugador"),
       prioridad: getPositionPriority(p.posicion || ""),
-      minutos: stats.minutos || 0,
+      minutos: minutosFinal,
       goles: stats.goles || 0,
       golesContra: stats.golesContra || 0,
       asistencias: stats.asistencias || 0,
