@@ -5,6 +5,7 @@ import { loadMatchPdfBlob, openOrDownloadPdf } from "../utils/matchPdfFirestore"
 import {
   collection,
   doc,
+  getDoc,
   updateDoc,
   increment,
   onSnapshot,
@@ -44,7 +45,9 @@ import {
   MapPin,
   Archive,
   Download,
-  Database
+  Database,
+  ShieldAlert,
+  AlertTriangle
 } from "lucide-react";
 import AddPlayerForm from "./AddPlayerForm";
 import ActaPartido from "./ActaPartido";
@@ -82,6 +85,12 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   const [toast, setToast] = useState(null); // { message, type }
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm, confirmText, cancelText }
   const [altaPlayer, setAltaPlayer] = useState(null); // player
+
+  // Estados para eliminación de partido con Captcha de seguridad
+  const [matchToDeleteWithCaptcha, setMatchToDeleteWithCaptcha] = useState(null);
+  const [captchaCode, setCaptchaCode] = useState("");
+  const [captchaInput, setCaptchaInput] = useState("");
+  const [isDeletingMatch, setIsDeletingMatch] = useState(false);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -1685,74 +1694,143 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
   };
 
 
-  // Eliminar un partido
-  const handleDeleteMatch = (matchId) => {
-    setConfirmDialog({
-      title: "Eliminar Partido",
-      message: "¿Seguro que quieres eliminar este partido? Esta acción no se puede deshacer y revertirá todas las estadísticas registradas de este encuentro en los jugadores convocados.",
-      confirmText: "Eliminar",
-      cancelText: "Cancelar",
-      onConfirm: async () => {
+  // Generar código Captcha para confirmar borrado de partido
+  const generateCaptchaCode = () => {
+    const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    let code = "";
+    for (let i = 0; i < 5; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  // Iniciar proceso de eliminación de un partido abriendo el modal de Captcha de seguridad
+  const handleDeleteMatch = (matchOrId) => {
+    const matchObj = typeof matchOrId === "object" && matchOrId !== null
+      ? matchOrId
+      : (partidos.find(p => p.id === matchOrId) || { id: matchOrId });
+    setMatchToDeleteWithCaptcha(matchObj);
+    setCaptchaCode(generateCaptchaCode());
+    setCaptchaInput("");
+  };
+
+  // Ejecución definitiva de la eliminación del partido tras validar el Captcha
+  const executeDeleteMatch = async (matchId) => {
+    if (!matchId) return;
+    setIsDeletingMatch(true);
+    try {
+      // 1. Obtener datos del partido (desde el estado o directamente desde Firestore si no estuviera)
+      let matchToDelete = partidos.find(p => p.id === matchId);
+      if (!matchToDelete) {
         try {
-          const matchToDelete = partidos.find(p => p.id === matchId);
-          if (matchToDelete && matchToDelete.actaGuardada) {
-            const stats = matchToDelete.statsJugadores || {};
-            const mvpId = matchToDelete.mvpJugadorId || "";
-
-            // Revertir las estadísticas en cada jugador
-            for (const jugadorId of Object.keys(stats)) {
-              const playerRef = doc(db, "jugadores", jugadorId);
-              const pStats = stats[jugadorId];
-              
-              const updates = {};
-              const minutos = pStats.minutos || 0;
-              const goles = pStats.goles || 0;
-              const golesContra = pStats.golesContra || 0;
-              const asistencias = pStats.asistencias || 0;
-              const amarillas = pStats.amarillas || 0;
-              const rojas = pStats.rojas || 0;
-              const convocado = pStats.convocado ? 1 : 0;
-
-              if (minutos > 0) updates.minutosJugados = increment(-minutos);
-              if (goles > 0) updates.golesFavor = increment(-goles);
-              if (golesContra > 0) updates.golesContra = increment(-golesContra);
-              if (asistencias > 0) updates.asistencias = increment(-asistencias);
-              if (amarillas > 0) updates.tarjetasAmarillas = increment(-amarillas);
-              if (rojas > 0) updates.tarjetasRojas = increment(-rojas);
-              if (convocado > 0) updates.partidosConvocados = increment(-convocado);
-
-              // Revertir MVP si este jugador fue elegido MVP
-              if (mvpId === jugadorId) {
-                updates.mvps = increment(-1);
-              }
-
-              if (Object.keys(updates).length > 0) {
-                await updateDoc(playerRef, updates);
-              }
-            }
+          const matchSnap = await getDoc(doc(db, "partidos", matchId));
+          if (matchSnap.exists()) {
+            matchToDelete = { id: matchSnap.id, ...matchSnap.data() };
           }
-
-          // Borrar PDF adjunto en Firestore si existía
-          if (matchToDelete?.hasPdfActa) {
-            try {
-              const chunksSnap = await getDocs(collection(db, "partidos", matchId, "pdf_acta"));
-              for (const cDoc of chunksSnap.docs) {
-                await deleteDoc(cDoc.ref);
-              }
-            } catch (storageErr) {
-              console.warn("No se pudo eliminar los fragmentos del PDF en Firestore:", storageErr);
-            }
-          }
-
-          // Borrar el documento del partido
-          await deleteDoc(doc(db, "partidos", matchId));
-          showToast("Partido eliminado correctamente.", "success");
-        } catch (err) {
-          console.error("Error eliminando partido y revertiendo estadísticas:", err);
-          showToast("Error al eliminar el partido.", "error");
+        } catch (mErr) {
+          console.warn("No se pudo obtener datos del partido en Firestore:", mErr);
         }
       }
-    });
+
+      // 2. Si el partido tiene acta guardada o estadísticas aplicadas, revertirlas de forma segura
+      if (matchToDelete && (matchToDelete.actaGuardada || matchToDelete.statsJugadoresConfirmados || matchToDelete.statsJugadores)) {
+        const stats = matchToDelete.statsJugadoresConfirmados || matchToDelete.statsJugadores || {};
+        const mvpId = matchToDelete.mvpJugadorId || "";
+
+        // Revertir estadísticas individuales en cada jugador participante
+        for (const jugadorId of Object.keys(stats)) {
+          if (!jugadorId) continue;
+          try {
+            const playerRef = doc(db, "jugadores", jugadorId);
+            const playerSnap = await getDoc(playerRef);
+
+            // Si el jugador ya no existe en Firestore (ej. fue eliminado previamente), omitir sin bloquear
+            if (!playerSnap.exists()) {
+              console.warn(`Jugador ${jugadorId} no encontrado en Firestore al revertir estadísticas. Se omite.`);
+              continue;
+            }
+
+            const pStats = stats[jugadorId] || {};
+            const updates = {};
+            const minutos = Number(pStats.minutos) || 0;
+            const goles = Number(pStats.goles) || 0;
+            const golesContra = Number(pStats.golesContra) || 0;
+            const asistencias = Number(pStats.asistencias) || 0;
+            const amarillas = Number(pStats.amarillas) || 0;
+            const rojas = Number(pStats.rojas) || 0;
+            const convocado = pStats.convocado ? 1 : 0;
+
+            if (minutos > 0) updates.minutosJugados = increment(-minutos);
+            if (goles > 0) updates.golesFavor = increment(-goles);
+            if (golesContra > 0) updates.golesContra = increment(-golesContra);
+            if (asistencias > 0) updates.asistencias = increment(-asistencias);
+            if (amarillas > 0) updates.tarjetasAmarillas = increment(-amarillas);
+            if (rojas > 0) updates.tarjetasRojas = increment(-rojas);
+            if (convocado > 0) updates.partidosConvocados = increment(-convocado);
+
+            // Revertir MVP si fue elegido en este partido
+            if (mvpId === jugadorId) {
+              updates.mvps = increment(-1);
+            }
+
+            if (Object.keys(updates).length > 0) {
+              await updateDoc(playerRef, updates);
+            }
+          } catch (playerErr) {
+            console.warn(`Error seguro al revertir estadísticas del jugador ${jugadorId}:`, playerErr);
+            // El proceso continúa para los demás jugadores y no interrumpe el borrado
+          }
+        }
+
+        // Revertir faltas si estaban registradas en el partido
+        const faltasIds = matchToDelete.statsFaltasConfirmadas || matchToDelete.faltas || (matchToDelete.ausencias ? Object.keys(matchToDelete.ausencias) : []);
+        if (Array.isArray(faltasIds)) {
+          for (const fId of faltasIds) {
+            if (!fId) continue;
+            try {
+              const pRef = doc(db, "jugadores", fId);
+              const pSnap = await getDoc(pRef);
+              if (pSnap.exists()) {
+                await updateDoc(pRef, {
+                  faltasPartido: increment(-1)
+                });
+              }
+            } catch (fErr) {
+              console.warn(`Error al revertir falta del jugador ${fId}:`, fErr);
+            }
+          }
+        }
+      }
+
+      // 3. Borrar fragmentos del PDF adjunto en Firestore si existían
+      try {
+        const chunksSnap = await getDocs(collection(db, "partidos", matchId, "pdf_acta"));
+        for (const cDoc of chunksSnap.docs) {
+          await deleteDoc(cDoc.ref);
+        }
+      } catch (storageErr) {
+        console.warn("No se pudieron eliminar los fragmentos del PDF en Firestore:", storageErr);
+      }
+
+      // 4. Borrar el documento principal del partido
+      await deleteDoc(doc(db, "partidos", matchId));
+
+      // Si el acta de este partido estaba abierta en el modal, cerrarla
+      if (actaMatch?.id === matchId) {
+        setActaMatch(null);
+      }
+
+      // Limpiar y cerrar modal
+      setMatchToDeleteWithCaptcha(null);
+      setCaptchaInput("");
+      setCaptchaCode("");
+      showToast("Partido eliminado correctamente.", "success");
+    } catch (err) {
+      console.error("Error eliminando partido y revertiendo estadísticas:", err);
+      showToast(`Error al eliminar el partido: ${err?.message || "Ocurrió un error inesperado"}`, "error");
+    } finally {
+      setIsDeletingMatch(false);
+    }
   };
 
   // Filtrar jugadores por término de búsqueda
@@ -3136,11 +3214,11 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
                               📋 Acta
                             </button>
                             
-                            {/* Eliminar partido */}
+                            {/* Eliminar partido con Captcha de seguridad */}
                             <button
-                              onClick={() => handleDeleteMatch(match.id)}
+                              onClick={() => handleDeleteMatch(match)}
                               className="p-2.5 text-slate-550 hover:text-red-400 hover:bg-red-950/25 border border-transparent hover:border-red-900/30 rounded-xl transition-all cursor-pointer active:scale-95"
-                              title="Borrar partido"
+                              title="Eliminar partido (Requiere código de seguridad Captcha)"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -4356,6 +4434,182 @@ export default function AdminPanel({ adminUser, onViewPublic, onLogout }) {
               className="flex-1 bg-gradient-to-r from-camarma-gold to-yellow-600 hover:from-yellow-650 hover:to-yellow-700 text-slate-950 font-black text-xs py-3 rounded-xl shadow-lg shadow-camarma-gold/10 transition-all active:scale-95 cursor-pointer"
             >
               {confirmDialog.confirmText || "Confirmar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal de Seguridad con Captcha para Eliminar Partido */}
+    {matchToDeleteWithCaptcha && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="w-full max-w-md bg-slate-800 border border-red-500/30 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6 space-y-5">
+          {/* Cabecera */}
+          <div className="flex items-start gap-3.5">
+            <div className="p-3 bg-red-500/10 border border-red-500/25 rounded-2xl text-red-400 shrink-0">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                Eliminar Partido
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Verificación de seguridad requerida para evitar borrados accidentales
+              </p>
+            </div>
+          </div>
+
+          {/* Información del Partido */}
+          <div className="bg-slate-900/90 border border-slate-700/70 rounded-2xl p-4 space-y-2 text-left">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-black uppercase tracking-wider text-amber-400">
+                {matchToDeleteWithCaptcha.tipo || "Partido"} {matchToDeleteWithCaptcha.jornada ? `· Jornada ${matchToDeleteWithCaptcha.jornada}` : ""}
+              </span>
+              <span className="font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/50">
+                {matchToDeleteWithCaptcha.condicion === "visitante" ? "Fuera de Casa" : "En Casa (Local)"}
+              </span>
+            </div>
+            <div className="text-base font-extrabold text-white">
+              {matchToDeleteWithCaptcha.condicion === "visitante" 
+                ? `${matchToDeleteWithCaptcha.rival || "Rival"} vs C.D. Gorditos C.F.`
+                : `C.D. Gorditos C.F. vs ${matchToDeleteWithCaptcha.rival || "Rival"}`}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <span>{matchToDeleteWithCaptcha.fecha || "Fecha no definida"} {matchToDeleteWithCaptcha.hora ? `a las ${matchToDeleteWithCaptcha.hora}` : ""}</span>
+            </div>
+
+            {(matchToDeleteWithCaptcha.actaGuardada || matchToDeleteWithCaptcha.statsJugadoresConfirmados) && (
+              <div className="pt-2 mt-2 border-t border-slate-800 text-[11px] text-amber-300/90 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Acta registrada:</strong> Al eliminar este partido se revertirán automáticamente las estadísticas acumuladas en los jugadores convocados (goles, asistencias, tarjetas y minutos).
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Caja de Captcha */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                Código Captcha de Seguridad
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptchaCode(generateCaptchaCode());
+                  setCaptchaInput("");
+                }}
+                className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                title="Cambiar código captcha"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Cambiar código
+              </button>
+            </div>
+
+            {/* Visualización del Captcha */}
+            <div className="relative overflow-hidden bg-slate-950 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between shadow-inner select-none">
+              {/* Ruido de fondo decorativo */}
+              <div className="absolute inset-0 opacity-20 pointer-events-none">
+                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  <line x1="5%" y1="20%" x2="95%" y2="80%" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 3" />
+                  <line x1="10%" y1="75%" x2="90%" y2="25%" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 4" />
+                  <circle cx="25%" cy="50%" r="20" stroke="#fbbf24" strokeWidth="1" fill="none" opacity="0.4" />
+                  <circle cx="75%" cy="40%" r="25" stroke="#f87171" strokeWidth="1" fill="none" opacity="0.3" />
+                </svg>
+              </div>
+
+              {/* Letras del Captcha con estilos intercalados */}
+              <div className="flex items-center justify-center gap-2.5 sm:gap-3.5 z-10 mx-auto py-1">
+                {captchaCode.split("").map((char, index) => {
+                  const rotations = ["-rotate-6", "rotate-3", "-rotate-3", "rotate-6", "-rotate-2"];
+                  const colors = ["text-amber-400", "text-yellow-300", "text-amber-300", "text-orange-400", "text-yellow-400"];
+                  return (
+                    <span
+                      key={index}
+                      className={`font-mono text-3xl font-black tracking-widest ${colors[index % colors.length]} ${rotations[index % rotations.length]} drop-shadow-[0_2px_8px_rgba(245,158,11,0.4)] inline-block transform select-none`}
+                    >
+                      {char}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Input para el Captcha */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-left">
+                Introduce el código de 5 caracteres:
+              </label>
+              <input
+                type="text"
+                maxLength={5}
+                value={captchaInput}
+                onChange={(e) => setCaptchaInput(e.target.value.toUpperCase())}
+                placeholder="Escribe el código..."
+                className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-center font-mono text-xl font-black tracking-widest text-white placeholder:text-slate-600 focus:outline-none transition-all ${
+                  captchaInput.trim().length === 0
+                    ? "border-slate-700 focus:border-amber-400/80"
+                    : captchaInput.trim().toUpperCase() === captchaCode.toUpperCase()
+                    ? "border-emerald-500 bg-emerald-950/20 text-emerald-300 ring-2 ring-emerald-500/25"
+                    : "border-red-500 bg-red-950/20 text-red-300 ring-2 ring-red-500/25"
+                }`}
+                autoFocus
+                disabled={isDeletingMatch}
+              />
+              <div className="flex items-center justify-between min-h-[18px] px-1">
+                {captchaInput.trim().length > 0 && (
+                  <span className={`text-[11px] font-bold ${
+                    captchaInput.trim().toUpperCase() === captchaCode.toUpperCase()
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }`}>
+                    {captchaInput.trim().toUpperCase() === captchaCode.toUpperCase()
+                      ? "✓ Código verificado. Confirmación habilitada."
+                      : "✗ El código no coincide."}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de Acción */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              disabled={isDeletingMatch}
+              onClick={() => {
+                setMatchToDeleteWithCaptcha(null);
+                setCaptchaInput("");
+                setCaptchaCode("");
+              }}
+              className="flex-1 bg-slate-900 border border-slate-700 hover:bg-slate-850 text-slate-300 font-extrabold text-xs py-3 rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={captchaInput.trim().toUpperCase() !== captchaCode.toUpperCase() || isDeletingMatch}
+              onClick={() => executeDeleteMatch(matchToDeleteWithCaptcha.id)}
+              className={`flex-1 font-black text-xs py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                captchaInput.trim().toUpperCase() === captchaCode.toUpperCase() && !isDeletingMatch
+                  ? "bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-red-600/25 cursor-pointer active:scale-95"
+                  : "bg-slate-850 text-slate-550 border border-slate-700/50 cursor-not-allowed opacity-50"
+              }`}
+            >
+              {isDeletingMatch ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>Eliminando...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Eliminar Definitivamente</span>
+                </>
+              )}
             </button>
           </div>
         </div>
